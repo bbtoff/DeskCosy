@@ -41,7 +41,7 @@
     $('energyFill').parentElement.classList.toggle('low', r < 0.15);
     const seed = DC.CROP[s.seed];
     const si = $('seedIcon');
-    if (si.dataset.k !== seed.id) { si.innerHTML = DC.icon('farm', seed.item, 24); si.dataset.k = seed.id; }
+    if (si.dataset.k !== seed.id) { si.innerHTML = DC.cropIcon(seed, 24); si.dataset.k = seed.id; }
     // palier
     $('lvlNum').textContent = s.level;
     const lmax = G.lvlMax();
@@ -163,7 +163,7 @@
       body.appendChild(h('div', 'hint', 'Chaque culture se vend au marché ou part au compost pour recharger les robots (réglage dans Ferme). Touchez la graine en haut pour choisir quoi planter.'));
       for (const c of DC.CROPS) {
         const un = G.s.unlocked[c.id];
-        const desc = `⏱ ${DC.fmtTime(c.grow)} · <span class="ic-coin sm"></span> ${c.sell} · ⚡ ${c.energy}`;
+        const desc = (c.tree ? `🌳 ${DC.fmtTime(c.grow)}, puis fruits toutes les ${DC.fmtTime(c.regrow)} (sans replanter ni arroser)` : `⏱ ${DC.fmtTime(c.grow)}`) + ` · <span class="ic-coin sm"></span> ${c.sell} · ⚡ ${c.energy}`;
         let btn;
         if (un) {
           btn = h('button', 'buy alt small', G.s.seed === c.id ? '✓ Choisie' : 'Choisir');
@@ -172,7 +172,7 @@
           btn = h('button', 'buy alt small', '🔬 Recherche');
           btn.onclick = () => UI.open('lab');
         }
-        const cd = card(DC.icon('farm', un ? c.item : c.seed, 32), c.name,
+        const cd = card(DC.cropIcon(c, 32, !un), c.name + (c.tree ? ' <span class="lvl">arbre</span>' : ''),
           desc + (un ? '' : `<br>🔒 Recherche « ${DC.RES[c.res].name} »`), btn);
         if (!un) cd.classList.add('locked');
         body.appendChild(cd);
@@ -235,9 +235,12 @@
         `Chaque robot a une 🔋 batterie (${Math.round(G.batMax())} unités) : une action en coûte de ${+G.actionCost(DC.CROPS[0]).toFixed(2)} (carotte) à ${+G.actionCost(DC.CROPS[DC.CROPS.length - 1]).toFixed(1)} (tournesol), les trajets aussi. ` +
         `Batterie faible → il file à une des <b>${G.chargeSlots()} bornes</b> de l’atelier et se recharge avec l’⚡ du compost. ` +
         `S’il n’y a pas de borne libre, il fait la queue.` + (full ? ` <b>Équipe complète au palier ${s.level}.</b>` : '')));
+      body.appendChild(h('div', 'hint', G.hasShop()
+        ? `🔧 <b>Atelier</b> : ${G.shopSlots()} poste(s). Les robots usés à ${Math.round(G.serviceAt() * 100)}% y passent une révision de ${DC.fmtTime(G.serviceTime())} (usure remise à zéro). Améliorations dans 🔬 Recherche → Atelier.`
+        : `🔧 Les robots s’usent et peuvent tomber en panne. Construisez l’<b>Atelier de réparation</b> (🔬 Recherche → Atelier) pour les faire réviser avant.`));
       for (const t of DC.BOTS) {
         if (!G.botAvailable(t.id)) {
-          const cd = card(DC.botIcon(t.id, 28), t.name, `${t.desc}<br>🔒 Recherche « ${DC.RES[t.res].name} »`);
+          const cd = card(DC.botIcon(t.id, 28), t.name, `${t.desc}<br>🔒 ${t.res && !G.rs(t.res) ? `Recherche « ${DC.RES[t.res].name} »` : `Palier ${t.lvl}`}`);
           cd.classList.add('locked');
           body.appendChild(cd);
           continue;
@@ -252,15 +255,16 @@
       }
       if (s.bots.length) {
         body.appendChild(h('div', 'section-title', `Équipe (${s.bots.length})`));
-        const STATE = { idle: 'flâne', wander: 'flâne', move: 'en route', work: 'au travail', tocharge: 'va se recharger', queue: 'attend une borne', charging: 'en charge' };
+        const STATE = { idle: 'flâne', wander: 'flâne', move: 'en route', work: 'au travail', tocharge: 'va se recharger', queue: 'attend une borne', charging: 'en charge', broken: 'EN PANNE 🔧', toshop: 'va à l’atelier', servicing: 'en révision 🔧' };
         for (const b of s.bots) {
           const t = DC.BOT[b.type];
           const stEl = h('span', 'bot-state');
           const upd = () => {
             const pct = Math.round(b.bat / G.batMax() * 100);
-            const stalled = b.state === 'charging' && G.s.energy <= 0.01;
-            stEl.textContent = `🔋${pct}% · ` + (stalled ? 'plus d’énergie !' : (STATE[b.state] || b.state));
-            stEl.className = 'bot-state ' + (b.state === 'queue' || stalled || pct < 20 ? 'sleep' : b.state === 'work' ? 'work' : '');
+            const stalled = b.state === 'charging' && (G.s.energy <= 0.01 || G.outage());
+            const wear = Math.min(100, Math.round((b.wear || 0) * 100));
+            stEl.textContent = `🔋${pct}% · 🔧${wear}% · ` + (stalled ? (G.outage() ? 'coupure de courant !' : 'plus d’énergie !') : (STATE[b.state] || b.state));
+            stEl.className = 'bot-state ' + (b.state === 'broken' || b.state === 'queue' || stalled || pct < 20 ? 'sleep' : b.state === 'work' ? 'work' : '');
           };
           upd(); UI.updaters.push(upd);
           const btn = buyBtn('', () => b.lvl >= G.botLvlCap() ? null : G.botUpCost(b), () => {
@@ -401,7 +405,7 @@
       ];
       g.innerHTML = rows.map(([a, b]) => `<div class="stat">${a}<b>${b}</b></div>`).join('');
       body.appendChild(g);
-      const by = DC.CROPS.filter(c => st.byCrop[c.id]).map(c => `${DC.icon('farm', c.item, 20)} ${DC.fmt(st.byCrop[c.id])}`).join(' &nbsp; ');
+      const by = DC.CROPS.filter(c => st.byCrop[c.id]).map(c => `${DC.cropIcon(c, 20)} ${DC.fmt(st.byCrop[c.id])}`).join(' &nbsp; ');
       if (by) body.appendChild(h('div', 'hint', by));
     },
 
@@ -409,7 +413,12 @@
       const s = G.s;
       const gain = G.prestigeGain();
       body.appendChild(h('div', 'hint',
-        `Une <b>nouvelle saison</b> remet la ferme à zéro (pièces, parcelles, robots, améliorations, cultures) mais vous gardez vos décorations, vos objectifs et vous gagnez des <b>graines dorées</b> : +10% de pièces et +2% de croissance chacune, pour toujours.`));
+        `Une <b>nouvelle saison</b> remet la ferme à zéro (pièces, parcelles, robots, améliorations, cultures) mais vous gardez vos décorations, vos objectifs et vous gagnez des <b>graines dorées</b> qui donnent des bonus <b>permanents</b> : pièces, croissance, vitesse de recherche et XP. Plus la saison a rapporté, plus vous en gagnez. Presque indispensable pour aller au bout !`));
+      const n = s.goldenSeeds, n2 = n + gain;
+      const pc = v => '×' + v.toFixed(2).replace('.', ',');
+      body.appendChild(h('div', 'card', `<div class="info"><div class="desc">Bonus actuels → après la saison :<br>
+        🪙 Pièces ${pc(DC.seedCoin(n))} → <b>${pc(DC.seedCoin(n2))}</b> · 🌱 Croissance ${pc(DC.seedGrow(n))} → <b>${pc(DC.seedGrow(n2))}</b><br>
+        🔬 Recherche ${pc(DC.seedResearch(n))} → <b>${pc(DC.seedResearch(n2))}</b> · ⭐ XP ${pc(DC.seedXp(n))} → <b>${pc(DC.seedXp(n2))}</b></div></div>`));
       body.appendChild(h('div', 'grid2', `<div class="stat">Graines dorées<b>${s.goldenSeeds}</b></div><div class="stat">Gagné cette saison<b>${DC.fmt(s.seasonEarned)}</b></div>`));
       const can = G.canPrestige();
       const btn = h('button', 'buy warn', can ? `Nouvelle saison (+${gain} 🌟)` : `Disponible à ${DC.fmt(DC.PRESTIGE_MIN)} pièces gagnées`);
@@ -477,7 +486,7 @@
         mb.onclick = () => DC.setMode(!DC.RECHARGE);
         const mr = row(DC.RECHARGE
           ? 'Vous jouez en mode recharge<div class="desc">Version tactile et accélérée : la Prairie se termine en quelques heures. Elle a sa propre partie, distincte du mode normal (retrouvée en revenant ici).</div>'
-          : 'Mode recharge<div class="desc">Pour l’écran tactile d’une voiture (Tesla…) pendant une recharge : gros boutons, progression environ 80 fois plus rapide, partie séparée. Adresse directe : <b>…/DeskCosy/recharge</b></div>', mb);
+          : 'Mode recharge<div class="desc">Pour l’écran tactile d’une voiture (Tesla…) pendant une recharge : gros boutons, progression environ 40 fois plus rapide, partie séparée. Adresse directe : <b>…/DeskCosy/recharge</b></div>', mb);
         mr.classList.add('mode-card');
       }
 
@@ -512,7 +521,7 @@
         ['Graphismes', 'Tiny Farm & Tiny Town — Kenney (kenney.nl), CC0'],
         ['Sons', 'Interface Sounds & RPG Audio — Kenney, CC0'],
         ['Musique', '« Happy Adventure » — TinyWorlds (OpenGameArt), CC0'],
-        ['Police', 'Pixelify Sans — Stefie Justprince, SIL OFL 1.1'],
+        ['Police', 'Nunito — The Nunito Project Authors, SIL OFL 1.1'],
       ];
       list.forEach(([a, b]) => body.appendChild(card('', a, b)));
       body.appendChild(h('div', 'hint', 'Licences complètes dans assets/licenses/.'));
@@ -529,7 +538,7 @@
     sp.innerHTML = '<div class="sp-title">Graine à planter (touchez une parcelle vide)</div>';
     for (const c of DC.CROPS) {
       const un = s.unlocked[c.id];
-      const b = h('button', 'seedopt' + (s.seed === c.id ? ' on' : ''), `${DC.icon('farm', un ? c.item : c.seed, 32)}${c.name}<small>${un ? DC.fmtTime(c.grow) : '🔒 recherche'}</small>`);
+      const b = h('button', 'seedopt' + (s.seed === c.id ? ' on' : ''), `${DC.cropIcon(c, 32, !un)}${c.name}<small>${un ? (c.tree ? '🌳 ' + DC.fmtTime(c.regrow) : DC.fmtTime(c.grow)) : '🔒 recherche'}</small>`);
       b.onclick = () => {
         if (!un) { UI.open('lab'); return; }
         s.seed = c.id; A.play('select', 0.6); hideSeedPicker(); UI.updateHUD();

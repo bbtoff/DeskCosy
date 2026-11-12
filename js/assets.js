@@ -27,6 +27,15 @@
   };
 
   /* Icône HTML (sprite CSS) — fonctionne même en file:// */
+  /* icône d'une culture (les arbres : arbre + fruits) */
+  DC.cropIcon = function (c, size, locked) {
+    size = size || 32;
+    if (!c.tree) return DC.icon('farm', locked ? c.seed : c.item, size);
+    const k = size / 16;
+    const dots = locked ? '' : [[3, 4], [10, 3], [7, 7], [12, 8], [4, 9]].map(([x, y]) =>
+      `<i style="position:absolute;left:${x * k}px;top:${y * k}px;width:${2 * k}px;height:${2 * k}px;background:${c.fruit}"></i>`).join('');
+    return `<span style="position:relative;display:inline-block;vertical-align:middle;width:${size}px;height:${size}px;${locked ? 'filter:grayscale(.6) opacity(.7)' : ''}">${DC.icon('town', c.tile, size)}${dots}</span>`;
+  };
   DC.icon = function (sheet, idx, size) {
     size = size || 32;
     const k = size / 16;

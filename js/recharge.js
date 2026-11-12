@@ -1,6 +1,6 @@
 /* DeskCosy — « Mode recharge » : version tactile et accélérée,
    pensée pour jouer sur l'écran d'une voiture pendant une recharge (20 à 45 min).
-   Sauvegarde séparée, prix / XP / recherches compressés (~80× plus rapide en fin de jeu),
+   Sauvegarde séparée, prix / XP / recherches compressés (~40× plus rapide en fin de jeu),
    absence plafonnée à 30 min. Activation : ?recharge=1, dossier /recharge/, navigateur Tesla,
    ou bouton dans les Options. Chargé après game.js. */
 (function () {
@@ -34,7 +34,7 @@
 
   DC.SAVE_KEY = 'deskcosy.recharge.v1';
   DC.OFFLINE_MAX = 30 * 60;               // absence prise en compte : 30 min
-  const K = DC.RECHARGE_K = 80;           // facteur d'accélération en fin de partie
+  const K = DC.RECHARGE_K = 40;           // facteur d'accélération en fin de partie
 
   /* Compression douce des montants : quasi inchangés en dessous de ~100,
      divisés par ~K pour les gros montants (monotone, jamais < 1). */

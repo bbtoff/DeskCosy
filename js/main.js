@@ -23,9 +23,20 @@
       const st = i % 5 === 0 ? 2 : (i % 7 === 0 ? 0 : 1);
       s.plots.push({ c: crops[Math.floor(i / 5) % crops.length], st, stage: st === 2 ? 2 : i % 2, p: Math.random(), w: i % 3 !== 0, g: i === 10, res: 0 });
     }
+    ['pommier', 'cerisier', 'oranger'].forEach(c => s.unlocked[c] = true);
+    for (let i = 20; i < 26; i++) Object.assign(s.plots[i], { c: ['pommier', 'cerisier', 'oranger'][i % 3], st: i % 2 ? 2 : 1, stage: 1, p: 0.6, w: true });
     ['arrose', 'arrose', 'plante', 'cueille', 'cueille', 'arrose', 'plante', 'poly'].forEach((t, k) => s.bots.push(G.makeBot(t, null, 1 + k % 4, 3 + k, 6)));
     s.decor = { panneau: 1, fleurs: 4, arbre: 4, automne: 2, poule: 2, mouton: 1, ruche: 1, buisson: 2, foin: 1, champi: 2 };
     s.quests = { q1: true, q2: true, q3: true, q4: true };
+    if (/[?&]events=1/.test(location.search)) {   // panne, corbeau et orage (captures)
+      s.bots[2].state = 'broken'; s.bots[2].timer = 50; s.bots[2].wear = 1;
+      s.research.done.atel1 = true; s.research.done.atel2 = true;
+      s.bots[0].state = 'servicing'; s.bots[0].wslot = 0; s.bots[0].timer = 10;
+      s.bots.push(G.makeBot('repar', null, 1, 5, 7));
+      G.crows[0] = { plot: 5, t: 9, chasedBy: 0 };
+      s.weather = { type: 'storm', t: 60 };
+    }
+    DC.QUESTS.forEach(q => { const [v, t] = q.check(G); if (v >= t) s.quests[q.id] = true; });   // pas de rafale de notifications
     if (/[?&]demo=2/.test(location.search)) {      // Vallée d'automne
       const vp = [];
       for (let i = 0; i < 20; i++) vp.push({ c: crops[i % 6], st: i % 4 === 0 ? 2 : 1, stage: i % 2, p: Math.random(), w: i % 3 === 0, g: false, weed: i % 5 === 1, res: 0 });
@@ -163,7 +174,7 @@
     R.burst(c.x, c.y, e.golden ? '#ffd34d' : '#9be26a', e.golden ? 16 : 5);
     A.play('harvest', e.who ? 0.35 : 0.8, 70);
     if (e.coins >= 0.5) A.play(e.golden ? 'coins2' : 'coins', e.who ? 0.18 : 0.4, 140);
-    if (e.golden) UI.toast(`★ Récolte dorée ! ${DC.icon('farm', e.crop.item, 20)} ×${e.qty}`, 'gold');
+    if (e.golden) UI.toast(`★ Récolte dorée ! ${DC.cropIcon(e.crop, 20)} ×${e.qty}`, 'gold');
   });
   G.on('plant', e => {
     if (G.fast) return;
@@ -210,7 +221,7 @@
     if (UI.panel) UI.renderPanel();
   });
   G.on('research', r => {
-    if (['robo3', 'robo7'].includes(r.id)) M.relayout();
+    if (['robo3', 'robo7', 'atel1'].includes(r.id)) M.relayout();
     if (G.fast) return;
     UI.toast(`🔬 Recherche terminée : <b>${r.name}</b> — ${r.desc}`, 'gold');
     A.play('quest', 0.7);
@@ -218,6 +229,25 @@
   });
   G.on('decorBought', () => { R.placeAnimals(); });
   G.on('rain', () => { if (!G.fast) UI.toast('🌧 Il pleut : tout s’arrose tout seul !'); });
+  const firstTime = k => { const t = G.s.seen || (G.s.seen = {}); if (t[k]) return false; t[k] = 1; return true; };
+  G.on('storm', () => {
+    if (G.fast) return;
+    UI.toast(G.rs('ener7') ? '⛈ Orage ! Le groupe électrogène alimente les bornes à 50 %.' : '⛈ Orage : coupure de courant, les bornes sont à l’arrêt !', 'warn');
+    if (!G.rs('ener7') && firstTime('storm')) UI.toast('💡 La recherche « Groupe électrogène » (Énergie) garde les bornes allumées pendant les orages.');
+  });
+  G.on('breakdown', b => {
+    if (G.fast) return;
+    if (G.s.regions[G.s.view].bots.includes(b)) { R.burst(b.x, b.y - 0.8, '#5a5a64', 10); A.play('error', 0.35); }
+    if (firstTime('breakdown')) UI.toast(`🔧 ${b.name} est en panne ! Recrutez un <b>Réparobot</b> (Robots) : il s’occupe des pannes tout seul. Sinon, ${b.name} se répare en ${DC.fmtTime(G.selfRepair())}.`, 'warn');
+  });
+  G.on('repair', e => { if (!G.fast && e.who && e.who.type && G.s.regions[G.s.view].bots.includes(e.b)) { R.burst(e.b.x, e.b.y - 0.8, '#ffd34d', 8); A.play('latch', 0.4); } });
+  G.on('crow', e => {
+    if (G.fast) return;
+    A.play('step', 0.5);
+    if (firstTime('crow')) UI.toast('🐦‍⬛ Un corbeau picore une culture mûre ! Les Réparobots le chassent, et l’Épouvantail (Décor) éloigne les corbeaux.', 'warn');
+  });
+  G.on('crowAte', e => { if (!G.fast) { const c = plotCenter(e.i); R.float(c.x, c.y, 'Mangé !', '#ff8a6b'); R.burst(c.x, c.y, '#1f1c26', 6); } });
+  G.on('crowChased', e => { if (!G.fast && e.who) { const c = plotCenter(e.i); R.burst(c.x, c.y - 0.3, '#1f1c26', 8); } });
   G.on('gift', g => { if (!G.fast) { A.play('latch', 0.5); } });
 
   /* ---------- Entrées ---------- */
@@ -248,6 +278,15 @@
         A.play('coins2', 0.8);
         UI.toast(r.kind === 'energy' ? '🎁 Cadeau : batterie pleine !' : `🎁 Cadeau : +${DC.fmt(r.amount)} pièces`, 'gold');
       }
+    } else if (hit.crow) {
+      const c = G.crows[G.s.cur];
+      if (c && G.chaseCrow(null)) { const pc = plotCenter(c.plot); R.burst(pc.x, pc.y - 0.3, '#1f1c26', 8); R.float(pc.x, pc.y, 'Ouste !', '#ffffff'); A.play('latch', 0.6); }
+    } else if (hit.bot && hit.bot.state === 'broken') {
+      const b = hit.bot;
+      G.repairBot(b, null);
+      R.burst(b.x, b.y - 0.8, '#ffd34d', 12);
+      R.float(b.x, b.y - 1.2, b.name + ' réparé !', '#b6f57c');
+      A.play('bot', 0.7);
     } else if (hit.plot != null) {
       const res = G.tapPlot(hit.plot);
       if (res === 'busy') {
@@ -270,6 +309,7 @@
       A.play('click', 0.5);
       if (hit.building === 'barn') UI.open('bots');
       else if (hit.building === 'compost') UI.open('farm', 'farm');
+      else if (hit.building === 'atelier') UI.open(G.hasShop() ? 'bots' : 'lab');
       else UI.open('shop', 'cultures');
     }
   }

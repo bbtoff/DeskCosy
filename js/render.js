@@ -73,6 +73,9 @@
       L.plot = i => ({ x: fx + b + (i % fc), y: fy + b + Math.floor(i / fc) });
     }
 
+    const cp = L.buildings.find(bd => bd.kind === 'compost');
+    L.buildings.push({ kind: 'atelier', x: cp.x, y: cp.y - 1, w: 2, h: 1 });
+    L.shopDoor = { x: cp.x + 1, y: cp.y - 0.25 };
     L.buildings.forEach(bd => mark(bd.x, bd.y, bd.w, bd.h));
     mark(1, L.buildings[0].y + 3, 3, 1); // devant l'atelier
     const pads = Math.min(6, G.chargeSlots());
@@ -258,6 +261,22 @@
         const r = s.energy / G.energyCap();
         ctx.fillStyle = '#2e2230'; ctx.fillRect(b.x * 16 + 3, b.y * 16 - 3, 26, 4);
         ctx.fillStyle = r < 0.15 ? '#e0602e' : '#8fe04f'; ctx.fillRect(b.x * 16 + 4, b.y * 16 - 2, Math.round(24 * r), 2);
+      } else if (b.kind === 'atelier') {
+        if (!G.hasShop()) continue;
+        DC.drawTile(ctx, 'farm', 98, b.x * 16, b.y * 16);
+        DC.drawTile(ctx, 'farm', 99, (b.x + 1) * 16, b.y * 16);
+        DC.drawTile(ctx, 'farm', 86, b.x * 16 + 1, b.y * 16 - 5);
+        DC.drawTile(ctx, 'farm', 87, b.x * 16 + 15, b.y * 16 - 5);
+        // postes : une jauge par robot en révision
+        const n = G.shopSlots(), busy = G.shopBusy();
+        for (let k = 0; k < n; k++) {
+          const x = b.x * 16 + 2 + k * 7, y = b.y * 16 - 8;
+          const bot = busy.find(o => o.wslot === k);
+          ctx.fillStyle = '#2e2230'; ctx.fillRect(x, y, 6, 4);
+          ctx.fillStyle = bot ? '#4a525c' : '#7d8794'; ctx.fillRect(x + 1, y + 1, 4, 2);
+          if (bot) { ctx.fillStyle = '#ffd34d'; ctx.fillRect(x + 1, y + 1, Math.max(1, Math.round(4 * (1 - bot.timer / G.serviceTime()))), 2); }
+        }
+        if (busy.length && Math.random() < 0.15) R.burst(b.x + 1 + (Math.random() - 0.5), b.y + 0.3, Math.random() < 0.5 ? '#ffd34d' : '#ffffff', 1);
       } else if (b.kind === 'market') {
         const unlocked = DC.CROPS.filter(c => s.unlocked[c.id]);
         const show = unlocked.slice(-2);
@@ -265,6 +284,32 @@
         show.forEach((c, i) => DC.drawTile(ctx, 'farm', c ? c.crate : 76, (b.x + i) * 16, b.y * 16));
       }
     }
+  }
+
+  const FRUITS = [[3, 4], [10, 3], [7, 7], [12, 8], [4, 9], [9, 10]];
+  function drawTree(crop, p, i, x, y) {
+    const t = R.time;
+    if (p.stage === 0 && p.st === 1) {
+      DC.drawTile(ctx, 'farm', 81, x, y - 2);
+    } else {
+      const sway = Math.round(Math.sin(t * 1.2 + i) * 0.5);
+      DC.drawTile(ctx, 'town', crop.tile, x + sway, y - 5);
+      // fruits : ils grossissent pendant la repousse, puis brillent quand c'est mûr
+      const n = p.st === 2 ? FRUITS.length : Math.floor(p.p * FRUITS.length);
+      ctx.fillStyle = p.st === 2 && p.g ? '#ffd34d' : crop.fruit;
+      for (let k = 0; k < n; k++) {
+        const [fx, fy] = FRUITS[k];
+        const sz = p.st === 2 ? 2 : 1;
+        ctx.fillRect(x + sway + fx, y - 5 + fy + (p.st === 2 ? Math.round(Math.sin(t * 3 + k + i) * 0.4) : 0), sz, sz);
+      }
+      if (p.st === 2) { ctx.fillStyle = 'rgba(255,255,255,0.8)'; for (let k = 0; k < n; k += 2) { const [fx, fy] = FRUITS[k]; ctx.fillRect(x + sway + fx, y - 5 + fy, 1, 1); } }
+    }
+    if (p.st === 1) {
+      const prog = (p.stage + p.p) / 2;
+      ctx.fillStyle = 'rgba(46,34,48,.55)'; ctx.fillRect(x + 2, y + 14, 12, 2);
+      ctx.fillStyle = p.stage ? '#ffb03a' : '#9fe36a'; ctx.fillRect(x + 2, y + 14, Math.max(1, Math.round(12 * (p.stage ? p.p : prog))), 2);
+    }
+    if (p.st === 2 && p.g) { ctx.strokeStyle = 'rgba(255,211,77,0.9)'; ctx.strokeRect(x + 0.5, y + 0.5, 15, 15); }
   }
 
   function drawPlots(L) {
@@ -276,6 +321,7 @@
       if (p.st === 0) continue;
       const crop = DC.CROP[p.c];
       const tile = crop.stages[p.st === 2 ? 2 : p.stage];
+      if (crop.tree && !p.weed) { drawTree(crop, p, i, x, y); continue; }
       if (p.weed) {
         DC.drawTile(ctx, 'farm', tile, x, y - 2);
         DC.drawTile(ctx, 'town', 17, x + Math.round(Math.sin(t * 2 + i)), y + 1);
@@ -355,7 +401,8 @@
       ctx.fillStyle = '#7d8794'; ctx.fillRect(x, y, 12, 5);
       ctx.fillStyle = '#a9b3bf'; ctx.fillRect(x, y, 12, 1);
       const on = busy && Math.floor(R.time * 3) % 2;
-      ctx.fillStyle = busy ? (on ? '#fff38a' : '#ffd34d') : '#4a525c';
+      const cut = G.outage();
+      ctx.fillStyle = cut ? (Math.floor(R.time * 2) % 2 ? '#e0602e' : '#4a525c') : busy ? (on ? '#fff38a' : '#ffd34d') : '#4a525c';
       ctx.fillRect(x + 5, y + 1, 2, 1); ctx.fillRect(x + 4, y + 2, 3, 1); ctx.fillRect(x + 5, y + 3, 2, 1);
     }
   }
@@ -373,10 +420,65 @@
     ctx.beginPath(); ctx.ellipse(x, y, w, w * 0.4, 0, 0, Math.PI * 2); ctx.fill();
   }
 
+  function drawBroken(b) {
+    const spr = DC.BOT_SPRITES[b.type];
+    const gx = px(b.x), gy = px(b.y);
+    drawShadow(gx, gy, 6);
+    const shake = Math.floor(R.time * 10 + b.id) % 7 === 0 ? 1 : 0;
+    ctx.save();
+    ctx.translate(gx + shake, gy - 1);
+    ctx.rotate(0.35 * (b.face || 1));
+    ctx.drawImage(spr.sleep, -8, -16);
+    ctx.restore();
+    // fumée
+    for (let k = 0; k < 3; k++) {
+      const t = (R.time * 0.7 + k / 3 + b.id * 0.17) % 1;
+      ctx.fillStyle = `rgba(90,90,100,${0.55 * (1 - t)})`;
+      const sz = 2 + Math.round(t * 3);
+      ctx.fillRect(gx + 2 + Math.round(Math.sin(t * 6 + k) * 2 + t * 4), gy - 16 - Math.round(t * 12), sz, sz);
+    }
+    // clé à molette clignotante
+    const y = gy - 30 + Math.round(Math.sin(R.time * 4) * 1.5);
+    ctx.fillStyle = '#2e2230'; ctx.fillRect(gx - 6, y - 1, 12, 12);
+    ctx.fillStyle = Math.floor(R.time * 3) % 2 ? '#ffd34d' : '#ffb03a'; ctx.fillRect(gx - 5, y, 10, 10);
+    ctx.fillStyle = '#2e2230';
+    ctx.fillRect(gx - 1, y + 2, 2, 4); ctx.fillRect(gx - 1, y + 7, 2, 2);
+    // retour automatique
+    const r = 1 - b.timer / G.selfRepair();
+    ctx.fillStyle = '#2e2230'; ctx.fillRect(gx - 6, y + 12, 12, 3);
+    ctx.fillStyle = '#9be26a'; ctx.fillRect(gx - 5, y + 13, Math.max(1, Math.round(10 * r)), 1);
+    if (R.hover && R.hover.bot === b) label(gx, y - 2, b.name + ' est en panne · touchez pour réparer');
+  }
+
+  function drawCrow(c) {
+    const pos = G.L.plot(c.plot);
+    const gx = pos.x * 16 + 8, gy = pos.y * 16 + 9;
+    const peck = Math.floor(R.time * 3 + c.plot) % 3 === 0 ? 2 : 0;
+    const f = (R.time * 2 + c.plot) % 4 < 2 ? 1 : -1;
+    ctx.save(); ctx.translate(gx, gy); ctx.scale(f, 1);
+    ctx.fillStyle = 'rgba(30,40,20,0.3)'; ctx.fillRect(-4, 4, 9, 2);
+    ctx.fillStyle = '#1f1c26';
+    ctx.fillRect(-4, -3, 7, 5);           // corps
+    ctx.fillRect(-6, -2, 3, 2);           // queue
+    ctx.fillRect(2, -6 + peck, 4, 4);     // tête
+    ctx.fillStyle = '#3a3550'; ctx.fillRect(-2, -2, 4, 2);
+    ctx.fillStyle = '#ffb03a'; ctx.fillRect(6, -4 + peck, 2, 1);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(4, -5 + peck, 1, 1);
+    ctx.fillStyle = '#e8892f'; ctx.fillRect(-2, 2, 1, 2); ctx.fillRect(1, 2, 1, 2);
+    ctx.restore();
+    // temps restant avant que la culture soit mangée
+    const r = Math.max(0, c.t / DC.CROW_EAT);
+    ctx.fillStyle = '#2e2230'; ctx.fillRect(pos.x * 16 + 2, pos.y * 16 - 3, 12, 3);
+    ctx.fillStyle = r < 0.35 ? '#e0602e' : '#ffd34d'; ctx.fillRect(pos.x * 16 + 3, pos.y * 16 - 2, Math.max(1, Math.round(10 * r)), 1);
+    if (R.hover && R.hover.crow) label(gx, pos.y * 16 - 4, 'Un corbeau ! Touchez-le pour le chasser');
+  }
+
   function drawBot(b) {
+    if (b.state === 'servicing') return;
+    if (b.state === 'broken') return drawBroken(b);
     const spr = DC.BOT_SPRITES[b.type];
     const resting = b.state === 'queue' || b.state === 'charging' || b.bat <= 0;
-    const stalled = (b.state === 'charging' && G.s.energy <= 0.01) || b.state === 'queue' || b.bat <= 0;
+    const stalled = (b.state === 'charging' && (G.s.energy <= 0.01 || G.outage())) || b.state === 'queue' || b.bat <= 0;
     const hover = resting ? 1 : 3 + Math.sin(b.bob) * 1.2;
     const gx = px(b.x), gy = px(b.y);
     drawShadow(gx, gy, resting ? 6 : 5);
@@ -393,9 +495,10 @@
     }
     if (b.face < 0) { ctx.save(); ctx.translate(x + 16, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0); ctx.restore(); }
     else ctx.drawImage(img, x, y);
+    if (b.tuned > 0 && Math.random() < 0.08) R.burst(b.x - b.face * 0.4, b.y - 0.4, '#ffd34d', 1);
     // outil pendant le travail
     if (b.state === 'work') {
-      const t = DC.BOT[b.type].jobs.length > 1 ? ({ water: 84, plant: 9, harvest: 88 })[b.job] : DC.BOT[b.type].tool;
+      const t = DC.BOT[b.type].jobs.length > 1 || b.type === 'repar' ? ({ water: 84, plant: 9, harvest: 88, repair: 86, crow: 87 })[b.job] : DC.BOT[b.type].tool;
       const wob = Math.sin(R.time * 14) * 1.5;
       ctx.save();
       ctx.translate(gx + b.face * 9, y + 8);
@@ -415,7 +518,7 @@
     if (stalled) {
       const k = (R.time * 0.8 + b.id * 0.3) % 1;
       ctx.fillStyle = `rgba(255,255,255,${1 - k})`;
-      ctx.font = '7px Pixelify, monospace';
+      ctx.font = '800 7px Nunito, sans-serif';
       ctx.fillText('z', gx + 5 + k * 4, y - k * 8);
     }
     if (R.hover && R.hover.bot === b) {
@@ -438,7 +541,7 @@
 
   function label(cx, by, text) {
     const fs = R.fontSize();
-    ctx.font = fs + 'px Pixelify, monospace';
+    ctx.font = '700 ' + fs + 'px Nunito, sans-serif';
     const w = Math.ceil(ctx.measureText(text).width) + 6;
     const bh = Math.ceil(fs * 1.35);
     const x = Math.round(Math.max(1, Math.min(G.L.Tw * 16 - w - 1, cx - w / 2))), y = Math.round(Math.max(1, by - bh));
@@ -480,8 +583,14 @@
     }
     // nuages
     if (G.s.weather.type !== 'sun') {
-      ctx.fillStyle = G.raining() ? 'rgba(40,50,80,0.22)' : 'rgba(40,50,80,0.08)';
+      ctx.fillStyle = G.storm() ? 'rgba(30,30,60,0.38)' : G.raining() ? 'rgba(40,50,80,0.22)' : 'rgba(40,50,80,0.08)';
       ctx.fillRect(0, 0, W, H);
+    }
+    // éclairs
+    if (G.storm()) {
+      R.flash = (R.flash || 0) - dt;
+      if (R.flash < -2 && Math.random() < dt * 0.4) { R.flash = 0.25; if (DC.audio && !G.fast) DC.audio.play('chop', 0.25); }
+      if (R.flash > 0) { ctx.fillStyle = `rgba(255,255,240,${0.5 * R.flash / 0.25})`; ctx.fillRect(0, 0, W, H); }
     }
     // nuit (heure réelle)
     if (R.night > 0) {
@@ -494,7 +603,7 @@
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (const b of G.s.bots) {
-        if (b.state === 'queue' || b.state === 'charging') continue;
+        if (b.state === 'queue' || b.state === 'charging' || b.state === 'servicing') continue;
         const gx = px(b.x), gy = px(b.y) - 12;
         const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 14);
         g.addColorStop(0, `rgba(140,230,255,${0.22 * R.night})`); g.addColorStop(1, 'rgba(140,230,255,0)');
@@ -563,6 +672,8 @@
     });
     for (const a of R.animals) list.push({ y: a.y, draw: () => drawAnimal(a) });
     for (const b of G.s.bots) list.push({ y: b.y, draw: () => drawBot(b) });
+    const crow = G.crows[G.s.cur];
+    if (crow && G.s.plots[crow.plot]) list.push({ y: L.plot(crow.plot).y + 0.7, draw: () => drawCrow(crow) });
     if (G.gift) {
       const g = G.gift;
       list.push({
@@ -604,6 +715,7 @@
       const c = DC.CROP[p.c];
       let txt = c.name;
       if (p.weed) txt += ' · mauvaises herbes !';
+      else if (p.st === 1 && c.tree && p.stage === 1) txt += ' · fruits ' + Math.floor(p.p * 100) + '%';
       else if (p.st === 1) txt += ' ' + Math.floor((p.stage + p.p) / 2 * 100) + '%' + (p.w ? '' : ' · soif');
       else if (p.st === 2) txt += ' · prêt' + (p.g ? ' ★' : '');
       else txt += ' · à semer';
@@ -619,7 +731,7 @@
     }
 
     // textes flottants
-    ctx.font = R.fontSize() + 'px Pixelify, monospace';
+    ctx.font = '800 ' + R.fontSize() + 'px Nunito, sans-serif';
     for (let i = R.floats.length - 1; i >= 0; i--) {
       const f = R.floats[i];
       f.t += dt;
@@ -642,6 +754,9 @@
     const wx = cssX / (16 * R.zoom), wy = cssY / (16 * R.zoom);
     const tx = Math.floor(wx), ty = Math.floor(wy);
     if (G.gift && tx === G.gift.x && (ty === G.gift.y || ty === G.gift.y - 1)) return { gift: true };
+    const crow = G.crows[G.s.cur];
+    if (crow) { const p = L.plot(crow.plot); if (Math.abs(p.x + 0.5 - wx) < 0.9 && Math.abs(p.y + 0.5 - wy) < 0.9) return { crow: true }; }
+    for (const b of G.s.bots) if (b.state === 'broken' && Math.abs(b.x - wx) < 0.8 && wy > b.y - 2.2 && wy < b.y + 0.4) return { bot: b };
     for (let i = 0; i < G.s.plots.length; i++) {
       const p = L.plot(i);
       if (p.x === tx && p.y === ty) return { plot: i };
@@ -659,6 +774,7 @@
     }
     let best = null, bd = 0.7;
     for (const b of G.s.bots) {
+      if (b.state === 'servicing') continue;
       const d = Math.hypot(b.x - wx, b.y - 0.7 - wy);
       if (d < bd) { bd = d; best = b; }
     }

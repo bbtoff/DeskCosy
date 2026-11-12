@@ -57,7 +57,7 @@
     const out = Object.assign({}, s);
     out.regions = s.regions.map(r => ({
       key: r.key, zones: r.zones,
-      bots: r.bots.map(b => ({ type: b.type, name: b.name, lvl: b.lvl, x: +b.x.toFixed(2), y: +b.y.toFixed(2), bat: +b.bat.toFixed(2) })),
+      bots: r.bots.map(b => ({ type: b.type, name: b.name, lvl: b.lvl, x: +b.x.toFixed(2), y: +b.y.toFixed(2), bat: +b.bat.toFixed(2), wear: +(b.wear || 0).toFixed(3), br: b.state === 'broken' ? Math.ceil(b.timer) : 0 })),
       plots: r.plots.map(p => ({ c: p.c, st: p.st, stage: p.stage, p: +p.p.toFixed(3), w: p.w, g: p.g, weed: p.weed || undefined })),
     }));
     out.lastSave = Date.now();
@@ -115,7 +115,7 @@
     s.regions.forEach(r => {
       r.zones = r.zones || 1;
       r.plots.forEach(p => { p.res = 0; if (!DC.CROP[p.c]) p.c = 'carotte'; });
-      r.bots = (r.bots || []).map(b => { const n = G.makeBot(b.type, b.name, b.lvl, b.x, b.y); n.bat = b.bat == null ? G.batMax() : b.bat; return n; });
+      r.bots = (r.bots || []).map(b => { const n = G.makeBot(b.type, b.name, b.lvl, b.x, b.y); n.bat = b.bat == null ? G.batMax() : b.bat; n.wear = b.wear || 0; if (b.br > 0) { n.state = 'broken'; n.timer = b.br; } return n; });
     });
   };
 
@@ -206,7 +206,7 @@
   function updateResearch(dt) {
     const c = G.s.research.cur;
     if (!c) return;
-    c.t += dt;
+    c.t += dt * G.researchSpeed();
     if (c.t >= DC.RES[c.id].time) finishResearch(c.id);
   }
 
@@ -250,28 +250,40 @@
   G.countBots = type => G.s.bots.filter(b => b.type === type).length;
   G.maxBotLevel = () => G.s.bots.reduce((m, b) => Math.max(m, b.lvl), 0);
   G.growthMult = () => (1 + 0.08 * G.lvl('engrais')) * (1 + (G.rs('agro3') ? 0.15 : 0) + (G.rs('agro7') ? 0.25 : 0)) *
-    (1 + 0.04 * (G.s.decor.ruche || 0)) * (1 + 0.02 * G.s.goldenSeeds);
+    (1 + 0.04 * (G.s.decor.ruche || 0)) * DC.seedGrow(G.s.goldenSeeds);
   G.coinMult = () => (1 + 0.08 * G.lvl('marche')) * (1 + (G.rs('com1') ? 0.15 : 0) + (G.rs('com3') ? 0.3 : 0) + (G.rs('com5') ? 0.5 : 0)) *
-    (1 + 0.02 * G.comfort() * (G.rs('com6') ? 2 : 1)) * (1 + 0.1 * G.s.goldenSeeds);
+    (1 + 0.02 * G.comfort() * (G.rs('com6') ? 2 : 1)) * DC.seedCoin(G.s.goldenSeeds);
+  G.researchSpeed = () => DC.seedResearch(G.s.goldenSeeds);
+  G.xpMult = () => DC.seedXp(G.s.goldenSeeds);
+  G.treeCount = () => G.s.regions.reduce((n, r) => n + r.plots.filter(p => p.st > 0 && DC.CROP[p.c] && DC.CROP[p.c].tree).length, 0);
   G.energyMult = () => (1 + 0.06 * G.lvl('compost')) * (1 + (G.rs('ener1') ? 0.25 : 0) + (G.rs('ener4') ? 0.5 : 0) + (G.rs('ener6') ? 1 : 0));
   G.solarRate = () => 0.04 * (G.rs('ener3') ? 4 : 1) * (G.rs('ener6') ? 2 : 1);
   G.upgCap = id => Math.min(DC.UPG[id].max, DC.upgCapFor(G.s.level));
   G.upgCost = function (id) { const u = DC.UPG[id]; return Math.floor(u.base * Math.pow(u.growth, G.lvl(id))); };
   G.maxBots = () => DC.maxBotsFor(G.s.level);
-  G.botAvailable = type => !DC.BOT[type].res || G.rs(DC.BOT[type].res);
+  G.botAvailable = type => { const t = DC.BOT[type]; return (!t.res || G.rs(t.res)) && (!t.lvl || G.s.level >= t.lvl); };
   G.botCost = function (type) {
     const t = DC.BOT[type];
     return Math.floor(t.cost * Math.pow(DC.BOT_COST_GROWTH, G.countBots(type)));
   };
   G.botLvlCap = () => DC.botLvlCapFor(G.s.level);
   G.botUpCost = b => Math.floor(DC.BOT[b.type].cost * 0.9 * Math.pow(1.75, b.lvl - 1)) + 10;
-  G.botSpeed = b => 1.6 * (1 + 0.12 * (b.lvl - 1)) * (G.rs('robo2') ? 1.15 : 1) * (G.rs('robo9') ? 1.3 : 1);
+  G.botSpeed = b => 1.6 * (b.tuned > 0 ? 1.2 : 1) * (1 + 0.12 * (b.lvl - 1)) * (G.rs('robo2') ? 1.15 : 1) * (G.rs('robo9') ? 1.3 : 1);
   G.botWork = function (b, job) {
     let t = 0.9 / (1 + 0.12 * (b.lvl - 1));
     if (job === 'water' && G.s.decor.puits) t *= 0.75;
     if (G.rs('robo9')) t *= 0.7;
     return t;
   };
+  G.wearMult = () => (G.rs('atel5') ? 0.65 : 1) * (G.rs('atel8') ? 0.7 : 1);
+  G.selfRepair = () => (G.rs('atel8') ? 10 : DC.SELF_REPAIR);
+  /* Atelier de réparation */
+  G.hasShop = () => G.rs('atel1');
+  G.shopSlots = () => (G.hasShop() ? 1 + (G.rs('atel2') ? 1 : 0) + (G.rs('atel6') ? 2 : 0) : 0);
+  G.serviceTime = () => DC.SERVICE_TIME * (G.rs('atel3') ? 0.5 : 1);
+  G.serviceAt = () => (G.rs('atel4') ? 0.45 : DC.SERVICE_AT);
+  G.storm = () => G.s.weather.type === 'storm';
+  G.outage = () => G.storm() && !G.rs('ener7');
   G.batMax = () => DC.BAT_BASE * (1 + (G.rs('robo1') ? 0.5 : 0) + (G.rs('robo6') ? 1 : 0));
   G.actionCost = crop => DC.BAT_ACTION * (crop ? DC.cropEffort(crop) : 1) * (G.rs('robo5') ? 0.75 : 1);
   G.chargeRate = () => DC.CHARGE_RATE * (G.rs('robo4') ? 1.6 : 1);
@@ -295,7 +307,7 @@
     return {
       id: G.nextBotId++, type, name, lvl: lvl || 1,
       x: x == null ? 0 : x, y: y == null ? 0 : y,
-      bat: G.s ? G.batMax() : DC.BAT_BASE, slot: -1,
+      bat: G.s ? G.batMax() : DC.BAT_BASE, slot: -1, wslot: -1, wear: 0, tuned: 0,
       state: 'idle', job: null, plot: -1, tx: 0, ty: 0, timer: Math.random(), think: 0,
       face: 1, bob: Math.random() * 6, blink: 2 + Math.random() * 3, happy: 0, wanderPause: 0,
     };
@@ -331,12 +343,32 @@
   G.needs = needs;
 
   function release(b) {
+    if (b.tgt) { const o = G.s.bots.find(x => x.id === b.tgt); if (o && o.fixBy === b.id) o.fixBy = 0; b.tgt = 0; }
+    const c = G.crows[G.s.cur];
+    if (c && c.chasedBy === b.id) c.chasedBy = 0;
+    if (b.job === 'repair' || b.job === 'crow') { b.plot = -1; b.job = null; return; }
     if (b.plot >= 0 && G.s.plots[b.plot] && G.s.plots[b.plot].res === b.id) G.s.plots[b.plot].res = 0;
     b.plot = -1; b.job = null;
   }
 
+  function findRepair(b) {
+    let best = null, bd = 1e9;
+    for (const o of G.s.bots) {
+      if (o.state !== 'broken' || (o.fixBy && o.fixBy !== b.id)) continue;
+      const d = (o.x - b.x) ** 2 + (o.y - b.y) ** 2;
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
   function findTask(b) {
     const plots = G.s.plots, L = G.L;
+    if (b.type === 'repar') {
+      const o = findRepair(b);
+      if (o) { o.fixBy = b.id; b.tgt = o.id; return ['repair', -1]; }
+      const c = G.crows[G.s.cur];
+      if (c && !c.chasedBy) { c.chasedBy = b.id; return ['crow', c.plot]; }
+      return null;
+    }
     const jobs = G.regionDef().weeds ? ['weed'].concat(DC.BOT[b.type].jobs) : DC.BOT[b.type].jobs;
     for (const job of jobs) {
       let best = -1, bd = 1e9;
@@ -379,11 +411,19 @@
     b.state = b.slot >= 0 ? 'tocharge' : 'queue';
   }
   G.goCharge = goCharge;
+  function freeShopSlot(b) {
+    const n = G.shopSlots();
+    const used = new Set(G.s.bots.filter(o => o !== b && o.wslot >= 0).map(o => o.wslot));
+    for (let i = 0; i < n; i++) if (!used.has(i)) return i;
+    return -1;
+  }
+  G.shopBusy = () => G.s.bots.filter(b => b.state === 'servicing');
 
   function updateBot(b, dt) {
     const L = G.L, s = G.s;
     b.bob += dt * 4;
     if (b.happy > 0) b.happy -= dt;
+    if (b.tuned > 0) b.tuned -= dt;
     b.blink -= dt; if (b.blink < -0.15) b.blink = 2 + rnd() * 4;
     if (b.slot >= G.chargeSlots()) b.slot = -1;
 
@@ -404,8 +444,9 @@
       case 'charging': {
         const max = G.batMax();
         const need = max - b.bat;
-        if (need > 0.01 && s.energy > 0) {
-          const amt = Math.min(G.chargeRate() * dt, need, s.energy / DC.BAT_TO_TANK);
+        const out = G.storm() ? (G.rs('ener7') ? 0.5 : 0) : 1;
+        if (need > 0.01 && s.energy > 0 && out > 0) {
+          const amt = Math.min(G.chargeRate() * out * dt, need, s.energy / DC.BAT_TO_TANK);
           b.bat += amt;
           s.energy -= amt * DC.BAT_TO_TANK;
         }
@@ -421,15 +462,19 @@
         if (b.think <= 0) {
           b.think = 0.35 + rnd() * 0.3;
           if (b.bat < DC.BAT_LOW) { goCharge(b); break; }
+          if (G.hasShop() && (b.wear || 0) >= G.serviceAt()) {
+            const ws = freeShopSlot(b);
+            if (ws >= 0) { release(b); b.wslot = ws; b.state = 'toshop'; break; }
+          }
           const t = findTask(b);
           if (t) {
             b.job = t[0]; b.plot = t[1];
-            s.plots[b.plot].res = b.id;
+            if (b.job !== 'repair' && b.job !== 'crow') s.plots[b.plot].res = b.id;
             b.state = 'move';
             break;
           }
           // rien à faire : on fait le plein si une borne est libre
-          if (b.bat < G.batMax() * 0.6 && s.energy > 2 && freeSlot(b) >= 0) { goCharge(b); break; }
+          if (b.bat < G.batMax() * 0.6 && s.energy > 2 && !G.outage() && freeSlot(b) >= 0) { goCharge(b); break; }
         }
         // flâner tranquillement
         if (b.state === 'idle') {
@@ -443,7 +488,44 @@
         }
         break;
       }
+      case 'toshop': {
+        if (!G.hasShop() || b.wslot < 0) { b.wslot = -1; b.state = 'idle'; break; }
+        const d = L.shopDoor;
+        if (moveTo(b, d.x, d.y, G.botSpeed(b), dt, false)) { b.state = 'servicing'; b.timer = G.serviceTime(); }
+        break;
+      }
+      case 'servicing': {
+        b.timer -= dt;
+        b.wear = Math.max(0, (b.wear || 0) - dt / G.serviceTime());
+        if (b.timer <= 0) {
+          b.wear = 0; b.breakAt = 0; b.wslot = -1; b.state = 'idle'; b.think = 0; b.happy = 1;
+          if (G.rs('atel7')) b.tuned = 300;
+          s.stats.services = (s.stats.services || 0) + 1;
+          G.emit('serviced', b);
+          G.checkQuests();
+        }
+        break;
+      }
+      case 'broken': {
+        b.timer -= dt;
+        if (b.timer <= 0) G.repairBot(b, 'auto');
+        break;
+      }
       case 'move': {
+        if (b.job === 'repair' || b.job === 'crow') {
+          let tx, ty;
+          if (b.job === 'repair') {
+            const o = s.bots.find(x => x.id === b.tgt);
+            if (!o || o.state !== 'broken') { release(b); b.state = 'idle'; b.think = 0; break; }
+            tx = o.x + 0.7; ty = o.y;
+          } else {
+            const c = G.crows[s.cur];
+            if (!c || c.plot !== b.plot) { release(b); b.state = 'idle'; b.think = 0; break; }
+            const pos = L.plot(b.plot); tx = pos.x + 0.5; ty = pos.y + 0.55;
+          }
+          if (moveTo(b, tx, ty, G.botSpeed(b) * 1.2, dt, true)) { b.state = 'work'; b.timer = b.job === 'repair' ? 2 : 0.4; }
+          break;
+        }
         const p = s.plots[b.plot];
         if (!p || !needs(p, b.job)) { release(b); b.state = 'idle'; b.think = 0; break; }
         const pos = L.plot(b.plot);
@@ -455,6 +537,14 @@
       }
       case 'work': {
         b.timer -= dt;
+        if (b.timer <= 0 && (b.job === 'repair' || b.job === 'crow')) {
+          b.bat = Math.max(0, b.bat - DC.BAT_ACTION);
+          if (b.job === 'repair') { const o = s.bots.find(x => x.id === b.tgt); if (o && o.state === 'broken') G.repairBot(o, b); }
+          else G.chaseCrow(b);
+          release(b);
+          b.state = 'idle'; b.think = 0.1; b.happy = 0.8;
+          break;
+        }
         if (b.timer <= 0) {
           const i = b.plot, p = s.plots[i];
           if (p && needs(p, b.job)) {
@@ -463,8 +553,10 @@
             else if (b.job === 'harvest') { harvest(i, b); b.happy = 0.8; }
             else if (b.job === 'plant') plant(i, null, b);
             else if (b.job === 'water') water(i, b);
+            wearBot(b, b.job === 'weed' ? null : DC.CROP[p.c]);
           }
           release(b);
+          if (b.state === 'broken') break;
           b.state = 'idle'; b.think = 0.1;
         }
         break;
@@ -472,6 +564,69 @@
       default: b.state = 'idle';
     }
   }
+
+  /* ---------- Pannes ---------- */
+  function wearBot(b, crop) {
+    if (G.s.level < DC.WEAR_LVL) return;
+    b.wear = Math.min(1.3, (b.wear || 0) + DC.WEAR_ACTION * (crop ? DC.cropEffort(crop) : 1) * G.wearMult());
+    // chaque robot a son propre seuil de rupture (tiré à chaque remise à neuf)
+    if (!b.breakAt) b.breakAt = DC.BREAK_MIN + rnd() * DC.BREAK_SPAN;
+    if (b.wear >= b.breakAt) {
+      b.breakAt = 0;
+      b.state = 'broken'; b.timer = G.selfRepair(); b.slot = -1; b.fixBy = 0;
+      G.s.stats.breakdowns = (G.s.stats.breakdowns || 0) + 1;
+      G.emit('breakdown', b);
+    }
+  }
+  /* who : robot réparateur, null = le joueur, 'auto' = réparation spontanée */
+  G.repairBot = function (b, who) {
+    if (b.state !== 'broken') return false;
+    b.state = 'idle'; b.think = 0; b.wear = 0; b.breakAt = 0; b.fixBy = 0; b.happy = 1.2;
+    G.s.stats.repairs = (G.s.stats.repairs || 0) + 1;
+    G.emit('repair', { b, who });
+    G.checkQuests();
+    return true;
+  };
+  G.brokenCount = () => G.s.regions.reduce((n, r) => n + r.bots.filter(b => b.state === 'broken').length, 0);
+
+  /* ---------- Corbeaux (un par région au plus, non sauvegardés) ---------- */
+  G.crows = [];
+  G.crowTimer = 150;
+  function updateCrows(dt) {
+    const s = G.s, c = G.crows[s.cur];
+    if (c) {
+      const p = s.plots[c.plot];
+      if (!p || p.st !== 2) { G.crows[s.cur] = null; G.emit('crowGone', { i: c.plot }); return; }
+      c.t -= dt;
+      if (c.t <= 0) {
+        p.st = 0; p.stage = 0; p.p = 0; p.w = false; p.g = false;
+        G.crows[s.cur] = null;
+        s.stats.eaten = (s.stats.eaten || 0) + 1;
+        G.emit('crowAte', { i: c.plot });
+      }
+      return;
+    }
+    if (s.level < DC.CROW_LVL || G.fast) return;
+    if (s.cur === 0) G.crowTimer -= dt;
+    if (G.crowTimer > 0) return;
+    const ripe = [];
+    for (let i = 0; i < s.plots.length; i++) if (s.plots[i].st === 2 && !s.plots[i].res) ripe.push(i);
+    if (!ripe.length) return;
+    G.crowTimer = (100 + rnd() * 140) * (1 + 1.5 * (s.decor.cible || 0));
+    const i = ripe[Math.floor(rnd() * ripe.length)];
+    G.crows[s.cur] = { plot: i, t: DC.CROW_EAT, chasedBy: 0 };
+    G.emit('crow', { i });
+  }
+  G.crowAt = i => { const c = G.crows[G.s.cur]; return c && c.plot === i ? c : null; };
+  G.chaseCrow = function (who) {
+    const c = G.crows[G.s.cur];
+    if (!c) return false;
+    G.crows[G.s.cur] = null;
+    G.s.stats.crows = (G.s.stats.crows || 0) + 1;
+    G.emit('crowChased', { i: c.plot, who });
+    G.checkQuests();
+    return true;
+  };
 
   /* ---------- Actions sur parcelles ---------- */
   function plant(i, crop, who) {
@@ -519,9 +674,10 @@
     G.s.energy = Math.min(G.energyCap(), G.s.energy + energy);
     G.s.stats.harvests += qty;
     G.s.stats.byCrop[p.c] = (G.s.stats.byCrop[p.c] || 0) + qty;
-    p.st = 0; p.stage = 0; p.p = 0; p.w = false; p.g = false;
+    if (crop.tree) { p.st = 1; p.stage = 1; p.p = 0; p.w = true; p.g = false; }   // l'arbre refait des fruits
+    else { p.st = 0; p.stage = 0; p.p = 0; p.w = false; p.g = false; }
     G.emit('harvest', { i, who, crop, qty, coins, energy, golden });
-    G.addXp(DC.cropXp(crop) * qty * reg.xp);
+    G.addXp(DC.cropXp(crop) * qty * reg.xp * G.xpMult());
     G.checkQuests();
     return true;
   }
@@ -589,17 +745,17 @@
   };
 
   /* ---------- Météo ---------- */
-  G.raining = () => G.s.weather.type === 'rain';
+  G.raining = () => G.s.weather.type === 'rain' || G.s.weather.type === 'storm';
   function updateWeather(dt) {
     const w = G.s.weather;
     w.t -= dt;
     if (w.t > 0) return;
-    if (w.type === 'rain') {
+    if (w.type === 'rain' || w.type === 'storm') {
       w.type = rnd() < 0.5 ? 'cloud' : 'sun';
       w.t = (300 + rnd() * 420) * (G.rs('com2') ? 0.6 : 1);
     } else if (w.type === 'cloud') {
-      w.type = 'rain'; w.t = 45 + rnd() * 60;
-      G.emit('rain', true);
+      w.type = G.s.level >= DC.STORM_LVL && rnd() < DC.STORM_CHANCE ? 'storm' : 'rain'; w.t = 45 + rnd() * 60;
+      G.emit(w.type, true);
     } else {
       w.type = rnd() < 0.6 ? 'cloud' : 'rain'; w.t = w.type === 'rain' ? 45 + rnd() * 50 : 60 + rnd() * 90;
       if (w.type === 'rain') G.emit('rain', true);
@@ -668,6 +824,7 @@
     fresh.stats = old.stats;
     fresh.opts = old.opts;
     fresh.tuto = old.tuto;
+    fresh.seen = old.seen;
     fresh.farmName = old.farmName;
     fresh.nameIdx = old.nameIdx;
     fresh.coins = 30 + fresh.goldenSeeds * 20;
@@ -693,6 +850,7 @@
       G.useRegion(r);
       updatePlots(dt, rain, goldChance, mulch);
       for (const b of s.bots) updateBot(b, dt);
+      updateCrows(dt);
     }
     G.useRegion(s.view);
     updateGift(dt);
@@ -717,13 +875,13 @@
       if (p.st !== 1) continue;
       if (weedRate && !p.weed && rnd() < weedRate) { p.weed = true; G.emit('weedGrow', i); }
       if (p.weed) continue;
-      if (rain) p.w = true;
-      if (!p.w) continue;
       const crop = DC.CROP[p.c];
+      if (rain || crop.tree) p.w = true;
+      if (!p.w) continue;
       const before = p.p;
-      p.p += dt * gm / (crop.grow / 2);
+      p.p += dt * gm / DC.stageTime(crop, p.stage);
       // Vallée : la terre sèche à mi-croissance
-      if (reg.dryMid && before < 0.5 && p.p >= 0.5 && p.p < 1 && !rain) p.w = rnd() < keepWet;
+      if (reg.dryMid && !crop.tree && before < 0.5 && p.p >= 0.5 && p.p < 1 && !rain) p.w = rnd() < keepWet;
       if (p.p >= 1) {
         p.p = 0;
         p.stage++;

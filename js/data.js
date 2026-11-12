@@ -12,6 +12,12 @@ DC.CROPS = [
   { id: 'mais',      name: 'Maïs',      stages: [28, 29, 30], item: 32, seed: 33, crate: 35, grow: 110, sell: 40,  energy: 16, res: 'agro6' },
   { id: 'tomate',    name: 'Tomate',    stages: [40, 41, 42], item: 44, seed: 45, crate: 47, grow: 170, sell: 85,  energy: 14, res: 'agro8' },
   { id: 'tournesol', name: 'Tournesol', stages: [81, 80, 83], item: 83, seed: 81, crate: 96, grow: 260, sell: 210, energy: 45, res: 'agro10' },
+  /* Arbres fruitiers : plantés une fois, ils redonnent des fruits sans replanter ni arroser.
+     grow = première récolte, regrow = délai entre deux récoltes. tile = arbre (town.png) */
+  { id: 'pommier',  name: 'Pommier',    tree: true, tile: 16, fruit: '#e0402e', stages: [81, 81, 81], item: 81, seed: 81, crate: 11, grow: 360,  regrow: 120, sell: 55,  energy: 10, res: 'agro12' },
+  { id: 'cerisier', name: 'Cerisier',   tree: true, tile: 5,  fruit: '#b0123a', stages: [81, 81, 81], item: 81, seed: 81, crate: 47, grow: 600,  regrow: 180, sell: 130, energy: 22, res: 'agro13' },
+  { id: 'oranger',  name: 'Oranger',    tree: true, tile: 28, fruit: '#ff9a1f', stages: [81, 81, 81], item: 81, seed: 81, crate: 35, grow: 900,  regrow: 240, sell: 330, energy: 50, res: 'agro14' },
+  { id: 'noyer',    name: 'Noyer doré', tree: true, tile: 15, fruit: '#fff2a8', stages: [81, 81, 81], item: 81, seed: 81, crate: 96, grow: 1500, regrow: 360, sell: 900, energy: 120, res: 'agro15' },
 ];
 DC.CROP = {};
 DC.CROPS.forEach(c => DC.CROP[c.id] = c);
@@ -22,6 +28,7 @@ DC.BOTS = [
   { id: 'plante', name: 'Plantobot', jobs: ['plant'],                    cost: 35,   color: ['#7ccf5a', '#3f8a3a', '#c4f0a2'], tool: 9,  desc: 'Sème les parcelles vides.' },
   { id: 'cueille', name: 'Cueillobot', jobs: ['harvest'],                cost: 55,   color: ['#f39a4a', '#b05a26', '#ffd0a0'], tool: 88, desc: 'Récolte ce qui est mûr.' },
   { id: 'poly',   name: 'Polybot',   jobs: ['harvest', 'plant', 'water'], cost: 5000, color: ['#b48ae8', '#6c47a8', '#e3d1ff'], tool: 86, desc: 'Sait tout faire, priorité à la récolte.', res: 'robo8' },
+  { id: 'repar',  name: 'Réparobot', jobs: ['repair'],                   cost: 150, color: ['#f2d04a', '#a8862a', '#fff2a8'], tool: 86, desc: 'Répare tout seul les robots en panne et chasse les corbeaux.', lvl: 3 },
 ];
 DC.BOT = {};
 DC.BOTS.forEach(b => DC.BOT[b.id] = b);
@@ -35,6 +42,20 @@ DC.BAT_LOW = 2.2;           // seuil de retour à la borne
 DC.BAT_TO_TANK = 0.3;       // ⚡ du réservoir par unité rechargée
 DC.CHARGE_RATE = 1.2;       // unités / seconde
 DC.CHARGE_SLOTS = 2;        // bornes de départ
+/* Pannes : chaque action use le robot ; il casse quand l'usure dépasse son seuil (aléatoire) */
+DC.WEAR_ACTION = 0.008;     // usure par action (×effort de la culture)
+DC.BREAK_MIN = 0.3;         // seuil de rupture : entre 30 % et 130 % d'usure
+DC.BREAK_SPAN = 1.0;
+DC.SELF_REPAIR = 90;        // secondes avant qu'un robot se répare seul
+DC.SERVICE_TIME = 24;       // durée d'une révision à l'atelier (s)
+DC.SERVICE_AT = 0.7;        // usure qui déclenche la révision
+DC.WEAR_LVL = 3;            // palier à partir duquel les robots s'usent
+/* Orages : coupure de courant des bornes */
+DC.STORM_LVL = 5;           // palier à partir duquel les orages arrivent
+DC.STORM_CHANCE = 0.3;      // part des pluies qui sont des orages
+/* Corbeaux : picorent les cultures mûres */
+DC.CROW_LVL = 4;
+DC.CROW_EAT = 14;           // secondes avant que la culture soit mangée
 
 DC.BOT_NAMES = [
   'Boulon', 'Bip', 'Bidule', 'Pixel', 'Turbine', 'Gaston', 'Zinzin', 'Biscotte', 'Grelot', 'Tournevis',
@@ -75,9 +96,12 @@ DC.maxBotsFor = L => Math.min(30, 3 + L + Math.floor(L / 5));
 DC.upgCapFor = L => L + 1;                                  // niveau max des améliorations
 DC.botLvlCapFor = L => Math.min(10, L + 1);
 DC.TIER_LVL = [1, 3, 6, 10, 14, 25];                             // palier requis par niveau de recherche
-DC.cropXp = c => Math.max(1, Math.round(c.grow / 20));
+DC.cropCycle = c => (c.tree ? c.regrow : c.grow);
+DC.cropXp = c => Math.max(1, Math.round(DC.cropCycle(c) / 20));
 /* effort : les grosses cultures fatiguent davantage les robots (carotte 1 → tournesol 4) */
-DC.cropEffort = c => 1 + (c.grow - 20) / 80;
+DC.cropEffort = c => (c.tree ? 2.5 : 1 + (c.grow - 20) / 80);
+/* durée d'un stade de croissance (2 stades) */
+DC.stageTime = (c, stage) => (c.tree ? (stage === 0 ? c.grow - c.regrow : c.regrow) : c.grow / 2);
 
 /* Arbre de recherche : coût en pièces + durée réelle (secondes), une à la fois */
 DC.BRANCHES = [
@@ -85,6 +109,7 @@ DC.BRANCHES = [
   { id: 'robo', name: 'Robotique', icon: '🤖' },
   { id: 'ener', name: 'Énergie',   icon: '⚡' },
   { id: 'com',  name: 'Commerce',  icon: '🪙' },
+  { id: 'atel', name: 'Atelier',   icon: '🔧' },
 ];
 DC.RESEARCH = [
   { id: 'agro1',  b: 'agro', t: 1, name: 'Navets',            cost: 60,     time: 60,   req: [],                 desc: 'Débloque le navet.' },
@@ -97,6 +122,10 @@ DC.RESEARCH = [
   { id: 'agro8',  b: 'agro', t: 4, name: 'Tomate',            cost: 800000,  time: 32400, req: ['agro6'],          desc: 'Débloque la tomate.' },
   { id: 'agro9',  b: 'agro', t: 4, name: 'Main verte',        cost: 1200000,  time: 36000, req: ['agro7'],          desc: '15% de récoltes doubles.' },
   { id: 'agro10', b: 'agro', t: 5, name: 'Tournesol',         cost: 20000000, time: 93600, req: ['agro8'],          desc: 'Débloque le tournesol.' },
+  { id: 'agro12', b: 'agro', t: 2, name: 'Verger : pommier',  cost: 6000,    time: 3600,  req: ['agro2'],          desc: 'Débloque le pommier : planté une fois, il donne des pommes sans arrosage.' },
+  { id: 'agro13', b: 'agro', t: 3, name: 'Cerisier',          cost: 70000,   time: 14400, req: ['agro12'],         desc: 'Débloque le cerisier.' },
+  { id: 'agro14', b: 'agro', t: 4, name: 'Oranger',           cost: 1500000, time: 36000, req: ['agro13'],         desc: 'Débloque l’oranger.' },
+  { id: 'agro15', b: 'agro', t: 5, name: 'Noyer doré',        cost: 50000000, time: 93600, req: ['agro14'],        desc: 'Débloque le noyer doré, l’arbre le plus précieux.' },
   { id: 'agro11', b: 'agro', t: 5, name: 'Pousses dorées',    cost: 40000000, time: 108000, req: ['agro9'],          desc: 'Cultures dorées (×10) : 1% → 3%.' },
 
   { id: 'robo1',  b: 'robo', t: 1, name: 'Batteries II',      cost: 200,    time: 180,   req: [],                 desc: 'Batterie des robots +50%.' },
@@ -113,8 +142,18 @@ DC.RESEARCH = [
   { id: 'ener2',  b: 'ener', t: 2, name: 'Cuve',              cost: 3000,    time: 2100,  req: ['ener1'],          desc: 'Réservoir d’énergie +100.' },
   { id: 'ener3',  b: 'ener', t: 2, name: 'Panneaux solaires', cost: 4500,    time: 2700,  req: ['ener1'],          desc: 'Production d’énergie passive ×4.' },
   { id: 'ener4',  b: 'ener', t: 3, name: 'Méthaniseur',       cost: 45000,   time: 10800,  req: ['ener2'],          desc: 'Énergie du compost +50%.' },
+  { id: 'ener7',  b: 'ener', t: 3, name: 'Groupe électrogène', cost: 50000,  time: 10800,  req: ['ener2'],          desc: 'Pendant les orages, les bornes restent alimentées (à 50%).' },
   { id: 'ener5',  b: 'ener', t: 4, name: 'Super-batterie',    cost: 900000,  time: 28800, req: ['ener4'],          desc: 'Réservoir d’énergie +300.' },
   { id: 'ener6',  b: 'ener', t: 5, name: 'Fusion de navets',  cost: 30000000,  time: 93600, req: ['ener5', 'ener3'], desc: 'Compost +100%, énergie passive ×2.' },
+
+  { id: 'atel1',  b: 'atel', t: 1, name: 'Atelier de réparation', cost: 400, time: 300,  req: [],                 desc: 'Construit l’atelier (1 poste) : les robots usés à 70% viennent s’y faire réviser.' },
+  { id: 'atel2',  b: 'atel', t: 2, name: 'Deuxième poste',    cost: 3500,    time: 2700,  req: ['atel1'],          desc: 'Atelier : +1 poste de révision.' },
+  { id: 'atel3',  b: 'atel', t: 2, name: 'Outils pneumatiques', cost: 5000,  time: 3000,  req: ['atel1'],          desc: 'Révisions deux fois plus rapides.' },
+  { id: 'atel4',  b: 'atel', t: 3, name: 'Diagnostic',        cost: 50000,   time: 12600, req: ['atel3'],          desc: 'Les robots partent en révision dès 45% d’usure.' },
+  { id: 'atel5',  b: 'atel', t: 3, name: 'Pièces renforcées', cost: 60000,   time: 14400, req: ['atel2'],          desc: 'Usure des robots −35%.' },
+  { id: 'atel6',  b: 'atel', t: 4, name: 'Chaîne de révision', cost: 1200000, time: 28800, req: ['atel5'],         desc: 'Atelier : +2 postes de révision.' },
+  { id: 'atel7',  b: 'atel', t: 4, name: 'Rodage',            cost: 1000000, time: 28800, req: ['atel4'],          desc: 'Après une révision, le robot va 20% plus vite pendant 5 min.' },
+  { id: 'atel8',  b: 'atel', t: 5, name: 'Nanoréparateurs',   cost: 40000000, time: 86400, req: ['atel6', 'atel7'], desc: 'Pannes réparées seules en 10 s, usure encore −30%.' },
 
   { id: 'com1',   b: 'com',  t: 1, name: 'Étal en bois',      cost: 150,    time: 120,   req: [],                 desc: 'Prix de vente +15%.' },
   { id: 'com2',   b: 'com',  t: 2, name: 'Station météo',     cost: 5000,    time: 3600,  req: ['com1'],           desc: 'Pluies plus fréquentes.' },
@@ -133,6 +172,10 @@ DC.RESEARCH.push(
   { id: 'val6', b: 'vallee', t: 6, name: 'Racines profondes',   cost: 4e10,  time: 60 * 3600, req: ['val5'],         desc: 'Vallée : récoltes doublées.' },
 );
 DC.BRANCHES.push({ id: 'vallee', name: 'Vallée d’automne', icon: '🍂' });
+/* Rythme global des recherches (le prestige les accélère ensuite) */
+DC.RES_TIME_BASE = 0.6;
+DC.RES_TIME_VALLEE = 0.35;
+DC.RESEARCH.forEach(r => { r.time = Math.round(r.time * (r.b === 'vallee' ? DC.RES_TIME_VALLEE : DC.RES_TIME_BASE)); });
 DC.RES = {};
 DC.RESEARCH.forEach(r => DC.RES[r.id] = r);
 DC.RESEARCH_BASE = DC.RESEARCH.filter(r => r.b !== 'vallee');
@@ -168,7 +211,7 @@ DC.DECOR = [
   { id: 'mouton',   name: 'Mouton',           sheet: 'farm', tile: 120, comfort: 8, cost: 1400, max: 4,  animal: true },
   { id: 'vache',    name: 'Vache',            sheet: 'farm', tile: 121, comfort: 12, cost: 4200, max: 3, animal: true },
   { id: 'puits',    name: 'Puits',            sheet: 'town', tile: 104, comfort: 15, cost: 7500, max: 1, desc: 'Les arroseurs travaillent 25% plus vite.' },
-  { id: 'cible',    name: 'Épouvantail-cible', sheet: 'town', tile: 95, comfort: 10, cost: 12000, max: 2, desc: 'Fait fuir les corbeaux. Cosy.' },
+  { id: 'cible',    name: 'Épouvantail-cible', sheet: 'town', tile: 95, comfort: 10, cost: 3000, max: 2, desc: 'Éloigne les corbeaux : 2,5 fois moins de visites chacun.' },
 ];
 DC.DEC = {};
 DC.DECOR.forEach(d => DC.DEC[d.id] = d);
@@ -186,6 +229,7 @@ DC.QUESTS = [
   { id: 'q6b', text: 'Atteindre le palier 2',          check: g => [g.s.level, 2],             reward: 80 },
   { id: 'q6c', text: 'Acheter la zone 2',              check: g => [g.regionZones(0), 2],             reward: 150 },
   { id: 'q7',  text: 'Récolter 100 cultures',          check: g => [g.stats.harvests, 100],    reward: 120 },
+  { id: 'q7b', text: 'Recruter un Réparobot',          check: g => [g.countBots('repar'), 1],   reward: 150 },
   { id: 'q8',  text: 'Acheter une décoration',         check: g => [g.decorCount(), 1],        reward: 50 },
   { id: 'q9',  text: 'Atteindre 10 de confort',        check: g => [g.comfort(), 10],          reward: 250 },
   { id: 'q10', text: 'Avoir 6 robots',                 check: g => [g.regionBots(0), 6],       reward: 300 },
@@ -199,6 +243,10 @@ DC.QUESTS = [
   { id: 'q18', text: 'Avoir 12 robots',                check: g => [g.regionBots(0), 12],      reward: 2500 },
   { id: 'q18b', text: 'Terminer 10 recherches',        check: g => [g.researchCount(), 10],    reward: 3000 },
   { id: 'q18c', text: 'Atteindre le palier 10',        check: g => [g.s.level, 10],            reward: 5000 },
+  { id: 'q18d', text: 'Réparer 10 robots en panne',    check: g => [g.s.stats.repairs || 0, 10], reward: 3000 },
+  { id: 'q18f', text: 'Réviser 25 robots à l’atelier',  check: g => [g.s.stats.services || 0, 25], reward: 4000 },
+  { id: 'q18e', text: 'Chasser 10 corbeaux',            check: g => [g.s.stats.crows || 0, 10],   reward: 3000 },
+  { id: 'q18g', text: 'Planter 8 arbres fruitiers',     check: g => [g.treeCount(), 8],          reward: 5000 },
   { id: 'q19', text: 'Atteindre 40 de confort',        check: g => [g.comfort(), 40],          reward: 4000 },
   { id: 'q20', text: 'Débloquer la tomate',            check: g => [g.s.unlocked.tomate ? 1 : 0, 1], reward: 6000 },
   { id: 'q21', text: 'Posséder 32 parcelles',          check: g => [g.regionPlots(0), 32],     reward: 10000 },
@@ -219,7 +267,12 @@ DC.QUESTS = [
 ];
 
 DC.PRESTIGE_MIN = 250000;
-DC.goldenSeedsFor = earned => Math.floor(Math.sqrt(earned / 25000));
+/* Bonus permanents des graines dorées (n graines) */
+DC.seedCoin = n => 1 + 0.25 * Math.sqrt(n);
+DC.seedGrow = n => 1 + 0.03 * Math.sqrt(n);
+DC.seedResearch = n => 1 + 0.15 * Math.sqrt(n);
+DC.seedXp = n => 1 + 0.1 * Math.sqrt(n);
+DC.goldenSeedsFor = earned => Math.floor(Math.cbrt(Math.max(0, earned) / 2000));
 
 /* Formatage des nombres à la française */
 DC.fmt = function (n) {

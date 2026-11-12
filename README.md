@@ -37,15 +37,17 @@ DeskCosy est un jeu de ferme qui **tourne tout seul**. Il s’installe sous form
 toujours visible, et avance doucement pendant que vous faites autre chose.
 
 - 🥕 Vous semez, arrosez et récoltez à la main au début…
-- 🤖 …puis vous recrutez des **robots** qui s’en chargent : Arrosebot, Plantobot, Cueillobot et Polybot.
+- 🌳 …puis vous plantez un **verger** : des arbres fruitiers qui redonnent des fruits sans replanter ni arroser.
+- 🤖 …puis vous recrutez des **robots** qui s’en chargent : Arrosebot, Plantobot, Cueillobot, Polybot et Réparobot.
 - 🔋 Les robots **se fatiguent** et vont se recharger sur des bornes, avec l’énergie produite par le **compost**.
+- 🔧 Des **imprévus** : pannes, orages qui coupent le courant, corbeaux qui picorent les récoltes.
 - 🔬 Un **arbre de recherche** en temps réel, des **paliers**, des **zones** de terrain à acheter.
 - 🍂 Une **seconde ferme** de fin de partie, plus exigeante.
 - 🌙 Jour et nuit selon l’heure réelle, pluie, cadeaux, cultures dorées, animaux à câliner.
 - ⏳ Progression **hors-ligne** : vos robots continuent de travailler pendant votre absence (jusqu’à 12 h).
 
-Durée de vie mesurée avec un joueur automatique qui optimise tout : **≈ 240 h** pour la Prairie et **≈ 620 h** pour
-tout terminer. Comptez davantage en jouant normalement.
+Durée de vie mesurée avec un joueur automatique qui optimise tout : **≈ 200 h** pour tout terminer en profitant des
+**nouvelles saisons** (prestige), et ≈ 350 h sans. Comptez davantage en jouant normalement.
 
 ---
 
@@ -58,6 +60,11 @@ tout terminer. Comptez davantage en jouant normalement.
 | Arbre de recherche | Robots et batteries | Paliers |
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/recherche.png" width="300"> | <img src="docs/screenshots/robots.png" width="300"> | <img src="docs/screenshots/paliers.png" width="300"> |
+
+**Imprévus et verger** : un robot en panne (clé 🔧), un corbeau, un orage qui coupe les bornes, l’atelier de réparation
+au-dessus du compost et les arbres fruitiers :
+
+![Pannes, corbeau, orage, atelier et verger](docs/screenshots/imprevus.png)
 
 **La Vallée d’automne** (fin de partie) :
 
@@ -119,6 +126,16 @@ Un **tutoriel interactif** guide les premières minutes (on peut le revoir dans 
 | 🍅 | Tomate | 2 min 50 | 85 | 14 | recherche |
 | 🌻 | Tournesol | 4 min 20 | 210 | 45 | recherche |
 
+**Arbres fruitiers** : plantés une fois, ils mettent du temps à pousser puis donnent des fruits en continu, sans être
+replantés ni arrosés (une seule action par récolte pour les robots).
+
+| | Arbre | Première récolte | Puis fruits toutes les | Vente | Énergie |
+|:---:|---|---:|---:|---:|---:|
+| 🍎 | Pommier | 6 min | 2 min | 55 | 10 |
+| 🍒 | Cerisier | 10 min | 3 min | 130 | 22 |
+| 🍊 | Oranger | 15 min | 4 min | 330 | 50 |
+| 🌰 | Noyer doré | 25 min | 6 min | 900 | 120 |
+
 ---
 
 ## Progression et difficulté
@@ -126,36 +143,51 @@ Un **tutoriel interactif** guide les premières minutes (on peut le revoir dans 
 - **🔋 Fatigue des robots** : chaque action et chaque trajet vident la batterie. Les grosses cultures fatiguent davantage
   (un tournesol coûte 4 fois plus qu’une carotte). Batterie faible : le robot file vers une **borne** de l’atelier.
   Les bornes sont limitées, donc les robots font la queue. Sans énergie, ils s’endorment.
-- **🔬 Recherche** : 4 branches (Agronomie, Robotique, Énergie, Commerce) et 5 niveaux, avec des prérequis. Chaque recherche
-  coûte des pièces et prend du **temps réel**, de 1 minute à 30 heures, une seule à la fois.
+- **🔧 Pannes** (dès le palier 3) : chaque action use un peu le robot, et il casse quand l’usure dépasse son seuil
+  (différent à chaque fois) : fumée et clé 🔧 au-dessus de lui. Tout se gère **sans cliquer** :
+  - le **Réparobot** (dès le palier 3) répare les pannes et chasse les corbeaux ;
+  - l’**Atelier de réparation** (recherche Atelier) : les robots usés y vont d’eux-mêmes pour une **révision** qui
+    remet leur usure à zéro avant la panne ;
+  - sinon, un robot en panne se répare seul au bout de 90 s. On peut aussi le toucher pour le réparer tout de suite.
+- **🛠 Branche Atelier** : postes de révision supplémentaires, outils pneumatiques (révisions 2× plus rapides),
+  diagnostic (révision dès 45 % d’usure), pièces renforcées, rodage (+20 % de vitesse après révision),
+  nanoréparateurs (pannes réparées en 10 s).
+- **⛈ Orages** (dès le palier 5) : environ une pluie sur trois tourne à l’orage. L’orage arrose tout, mais il coupe
+  le courant des bornes de recharge. La recherche *Groupe électrogène* les maintient à 50 %.
+- **🐦‍⬛ Corbeaux** (dès le palier 4) : un corbeau se pose sur une culture mûre et la mange en 14 s si personne ne la
+  récolte ou ne le chasse (d’un toucher, ou par un Réparobot). Chaque **Épouvantail** espace nettement leurs visites.
+- **🔬 Recherche** : 5 branches (Agronomie, Robotique, Énergie, Commerce, Atelier) et 5 niveaux, avec des prérequis.
+  Chaque recherche coûte des pièces et prend du **temps réel**, de moins d’une minute à 18 heures, une seule à la fois.
 - **⭐ Paliers** : l’XP vient des récoltes et des recherches. Chaque palier augmente le nombre de robots, le niveau maximal
   des améliorations et des robots, et ouvre de nouveaux niveaux de recherche et de nouvelles zones.
 - **🗺 Zones** : le terrain est découpé en zones de 8 parcelles, à acheter (palier requis et prix croissant).
 - **🎯 Objectifs** : une quarantaine d’objectifs avec récompenses.
-- **🌟 Nouvelle saison** (prestige, optionnel) : on recommence avec des **graines dorées** qui donnent des bonus permanents.
+- **🌟 Nouvelle saison** (prestige) : on recommence à zéro (on garde décorations et objectifs) avec des **graines
+  dorées**, d’autant plus nombreuses que la saison a rapporté. Leurs bonus sont permanents : pièces, croissance,
+  **vitesse de recherche** et **XP**. Sans elles, la fin du jeu est très longue : elles sont presque indispensables.
 
-| Jalon (joueur optimal) | Temps |
-|---|---:|
-| Palier 10 | ~5 h |
-| Zone 4 | ~16 h |
-| Palier 20 | ~52 h |
-| Prairie terminée | ~240 h |
-| Palier 40 | ~455 h |
-| Tout le jeu | ~620 h |
+| Jalon (joueur optimal) | Avec nouvelles saisons | Sans |
+|---|---:|---:|
+| Palier 20 | ~50 h | ~40 h |
+| Prairie terminée, Vallée débloquée | ~140 h | ~200 h |
+| Tout le jeu (palier 40, tous les objectifs) | **~195 h** | ~345 h |
+
+Le joueur automatique ci-dessus lance une nouvelle saison chaque fois qu’elle triple ses graines dorées
+(3 saisons, vers 17 h, 30 h et 58 h).
 
 ---
 
 ## Fin de partie : la Vallée d’automne
 
-Une fois la Prairie terminée (32 recherches, palier 25, 8 zones), une **seconde ferme** se débloque.
+Une fois la Prairie terminée (toutes ses recherches, palier 25, 8 zones), une **seconde ferme** se débloque.
 Elle tourne **en même temps** que la Prairie, et le bouton 🍂 / 🌿 permet de passer de l’une à l’autre.
 
 | Plus dur | En échange |
 |---|---|
 | Pousse ×0,5 | Ventes ×10 |
-| La terre sèche à mi-croissance (4 arrosages) | XP ×4 |
+| La terre sèche à mi-croissance (4 arrosages, sauf les arbres) | XP ×4 |
 | Mauvaises herbes qui bloquent la pousse | Paliers 26 à 40 |
-| Pentes : batteries vidées 50 % plus vite | 8 nouvelles zones et 6 recherches dédiées (36 à 60 h) |
+| Pentes : batteries vidées 50 % plus vite | 8 nouvelles zones et 6 recherches dédiées (13 à 21 h) |
 
 ---
 
@@ -170,7 +202,7 @@ Le mode s’active aussi tout seul dans le navigateur d’une Tesla, et se chang
 
 - **Interface tactile** : gros boutons, texte « Très grand » par défaut, **pincer pour zoomer**, appui long pour
   attribuer une graine.
-- **Progression accélérée** : prix, XP et durées de recherche compressés (environ 80 fois plus rapide en fin de partie,
+- **Progression accélérée** : prix, XP et durées de recherche compressés (environ 40 fois plus rapide en fin de partie,
   presque inchangé au tout début), avec les mêmes mécaniques : fatigue, recherche, paliers, zones, Vallée d’automne.
 - **Compteur de session** 🔌 dans la barre du haut.
 - **Absence limitée à 30 minutes** : entre deux recharges, les robots avancent un peu, mais l’essentiel se joue
@@ -180,10 +212,10 @@ Le mode s’active aussi tout seul dans le navigateur d’une Tesla, et se chang
 | Jalon (joueur optimal) | Mode recharge | Mode normal |
 |---|---:|---:|
 | Palier 10 | ~12 min | ~5 h |
-| Prairie terminée | ~3 h 15 | ~240 h |
-| Tout le jeu | ~8 h | ~620 h |
+| Tout le jeu, avec nouvelles saisons | ~6 h | ~195 h |
+| Tout le jeu, sans | ~9 h | ~345 h |
 
-Soit une dizaine à une vingtaine de recharges pour tout terminer.
+Soit une quinzaine de recharges pour tout terminer.
 
 ---
 
@@ -261,7 +293,7 @@ Ressources libres utilisées (licences complètes dans [`assets/licenses/`](asse
 | Tiny Farm, Tiny Town (graphismes) | [Kenney](https://kenney.nl) | CC0 |
 | Interface Sounds, RPG Audio (sons) | [Kenney](https://kenney.nl) | CC0 |
 | « Happy Adventure » (musique) | TinyWorlds ([OpenGameArt](https://opengameart.org/content/happy-adventure-loop)) | CC0 |
-| Pixelify Sans (police) | The Pixelify Sans Project Authors | SIL OFL 1.1 |
+| Nunito (police) | The Nunito Project Authors | SIL OFL 1.1 |
 
 ---
 
@@ -271,8 +303,8 @@ Ressources libres utilisées (licences complètes dans [`assets/licenses/`](asse
 **DeskCosy** is a cosy idle farming game that lives on the edge of your screen. Little robots sow, water and harvest your
 crops while you work. They get tired and recharge on charging pads using compost energy. It features a real-time
 research tree, farm tiers, purchasable land zones, an end-game second farm (the Autumn Valley), a day/night cycle based on
-real time, offline progress, landscape and portrait layouts, and a Windows desktop mode (frameless, always-on-top
-strip that can reserve screen space like the taskbar). A touch-friendly, ~80× faster **“mode recharge”** (separate
+real time, fruit-tree orchards, robot breakdowns with a repair workshop, storms and crows, offline progress, landscape and portrait layouts, and a Windows desktop mode (frameless, always-on-top
+strip that can reserve screen space like the taskbar). A touch-friendly, ~40× faster **“mode recharge”** (separate
 save) is designed for playing on a car's touchscreen while charging: https://bbtoff.github.io/DeskCosy/recharge/.
 The game is in French.
 
