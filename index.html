@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#5a9e4b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>DeskCosy</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="world"></canvas>
+
+  <!-- Barre du haut -->
+  <header id="hud">
+    <div class="hud-left">
+      <div class="drag" id="dragHandle" title="Glisser pour déplacer la fenêtre">⠿</div>
+      <div class="res" id="resCoins" title="Pièces"><span class="ic-coin"></span><b id="coins">0</b><small id="cps"></small></div>
+      <div class="res lvl" id="resLevel" title="Palier"><span>⭐</span><b id="lvlNum">1</b><div class="xp"><div id="lvlFill"></div></div></div>
+      <div class="res energy" id="resEnergy" title="Énergie des robots (compost)">
+        <span class="bolt">⚡</span>
+        <div class="bar"><div class="fill" id="energyFill"></div><span id="energyTxt">0/0</span></div>
+      </div>
+    </div>
+    <div class="hud-right">
+      <button class="hbtn" id="btnRegion" title="Changer de région"><span id="regionIc">🍂</span><span class="lbl" id="regionLbl">Vallée</span></button>
+      <button class="hbtn seed" id="btnSeed" title="Graine à planter"><span id="seedIcon"></span></button>
+      <button class="hbtn" id="btnShop" title="Boutique">🛒<span class="lbl">Boutique</span></button>
+      <button class="hbtn" id="btnBots" title="Robots">🤖<span class="lbl">Robots</span></button>
+      <button class="hbtn" id="btnLab" title="Recherche">🔬<span class="lbl">Recherche</span><i class="prog"><i id="labFill"></i></i></button>
+      <button class="hbtn" id="btnFarm" title="Ferme">🌾<span class="lbl">Ferme</span><i class="dot" id="questDot"></i></button>
+      <button class="hbtn" id="btnOpts" title="Options">⚙</button>
+      <button class="hbtn desk-only" id="btnMin" title="Réduire">—</button>
+      <button class="hbtn desk-only" id="btnQuit" title="Quitter">✕</button>
+    </div>
+  </header>
+
+  <div id="toasts"></div>
+
+  <!-- Panneau modal -->
+  <div id="modal" class="hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <div class="tabs" id="tabs"></div>
+        <button class="close" id="modalClose">✕</button>
+      </div>
+      <div class="sheet-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Sélecteur de graine -->
+  <div id="seedPicker" class="hidden"></div>
+
+  <div id="resizeGrip" title="Glisser pour redimensionner"></div>
+
+  <div id="tuto" class="hidden"></div>
+
+  <div id="boot">
+    <div class="boot-title">DeskCosy</div>
+    <div class="boot-sub">Le petit potager des robots</div>
+    <div class="boot-load" id="bootMsg">Chargement…</div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/tuto.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
