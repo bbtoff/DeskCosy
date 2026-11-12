@@ -117,6 +117,18 @@ body.desktop .hbtn.desk-only { display: flex; }
 .hbtn .dot.on { display: block; animation: pulse 1s infinite; }
 @keyframes pulse { 50% { transform: scale(1.25); } }
 
+/* ---------- Mode recharge (tactile, écran de voiture) ---------- */
+.sess { display: none; }
+html.recharge .sess { display: flex; background: #d8f0ff; }
+html.recharge .hbtn { height: 34px; min-width: 38px; padding: 0 9px; }
+html.recharge .res { height: 32px; }
+html.recharge .close { width: 38px; height: 38px; font-size: 18px; }
+html.recharge .buy { min-height: 36px; }
+html.recharge .seg button { padding: 8px 12px; }
+html.recharge .tab { padding-top: 7px; padding-bottom: 7px; }
+html.recharge #world { cursor: default; }
+.mode-card { background: #d8f0ff !important; }
+
 /* Compact HUD */
 body.compact .hbtn .lbl { display: none; }
 body.compact .res small { display: none; }

@@ -37,7 +37,9 @@
   const STEPS = [
     {
       title: 'Bienvenue dans DeskCosy !',
-      text: 'Un petit potager qui pousse au bord de votre écran, entretenu par des robots. Je vous montre l’essentiel en une minute.',
+      text: () => DC.RECHARGE
+        ? '🔌 <b>Mode recharge</b> : une version tactile et accélérée, à jouer à l’arrêt pendant que la voiture charge. Un petit potager entretenu par des robots : je vous montre l’essentiel en une minute.'
+        : 'Un petit potager qui pousse au bord de votre écran, entretenu par des robots. Je vous montre l’essentiel en une minute.',
       next: 'C’est parti !',
     },
     {
@@ -111,7 +113,7 @@
     },
     {
       title: 'Choisir la graine',
-      text: 'Ce bouton choisit ce que vous plantez. <b>Clic droit</b> (ou appui long) sur une parcelle pour lui attribuer cette graine : les robots la replanteront.',
+      text: () => 'Ce bouton choisit ce que vous plantez. ' + (DC.RECHARGE ? '<b>Appui long</b>' : '<b>Clic droit</b> (ou appui long)') + ' sur une parcelle pour lui attribuer cette graine : les robots la replanteront.',
       target: () => el('#btnSeed'),
       next: 'Suivant',
     },
@@ -129,9 +131,9 @@
     },
     {
       title: 'À vous de jouer !',
-      text: () => '<b>Molette</b> de la souris : zoom. Dans <b>⚙ Options</b> : taille du texte, disposition' +
+      text: () => (DC.RECHARGE ? '<b>Pincez</b> l’écran pour zoomer.' : '<b>Molette</b> de la souris : zoom.') + ' Dans <b>⚙ Options</b> : taille du texte, disposition' +
         (isDesk() ? ', position de la bande et premier plan.' : '.') +
-        ' Vos robots continuent de travailler pendant votre absence. Bonne récolte !',
+        (DC.RECHARGE ? ' Entre deux recharges, vos robots travaillent encore 30 minutes. Bonne recharge !' : ' Vos robots continuent de travailler pendant votre absence. Bonne récolte !'),
       target: () => el('#btnOpts'),
       next: 'Terminer',
     },

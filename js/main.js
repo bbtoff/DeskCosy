@@ -274,9 +274,31 @@
     }
   }
 
+  /* pincer pour zoomer (écrans tactiles) */
+  const touches = new Map();
+  let pinch = null;
+  const pinchDist = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  canvas.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') {
+      touches.set(e.pointerId, pos(e));
+      if (touches.size === 2) { pinch = { d: pinchDist() }; clearTimeout(longT); down = null; }
+    }
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!touches.has(e.pointerId)) return;
+    touches.set(e.pointerId, pos(e));
+    if (pinch && touches.size === 2) {
+      const r = pinchDist() / Math.max(1, pinch.d);
+      if (r > 1.3 || r < 0.77) { if (M.zoomBy(r > 1 ? 1 : -1)) A.play('click', 0.3); pinch.d = pinchDist(); }
+    }
+  });
+  const endTouch = e => { touches.delete(e.pointerId); if (touches.size < 2 && pinch) { pinch.done = true; if (!touches.size) pinch = null; } };
+  canvas.addEventListener('pointerup', endTouch);
+  canvas.addEventListener('pointercancel', endTouch);
+
   canvas.addEventListener('pointerdown', e => {
     A.unlock();
-    if (e.button === 2) return;
+    if (e.button === 2 || pinch) return;
     down = { ...pos(e), id: e.pointerId, moved: false, long: false };
     clearTimeout(longT);
     longT = setTimeout(() => { if (down && !down.moved) { down.long = assignAt(down); } }, 520);
@@ -290,7 +312,7 @@
   canvas.addEventListener('pointerleave', () => { R.hover = null; });
   canvas.addEventListener('pointerup', e => {
     clearTimeout(longT);
-    if (down && !down.moved && !down.long && e.button !== 2) tap(pos(e));
+    if (down && !down.moved && !down.long && e.button !== 2 && !pinch) tap(pos(e));
     down = null;
   });
   canvas.addEventListener('pointercancel', () => { clearTimeout(longT); down = null; });
@@ -312,7 +334,10 @@
     while (rem > 0) { const d = Math.min(rem, 0.05); G.update(d); rem -= d; }
     R.draw(dt);
     hudT -= dt;
-    if (hudT <= 0) { hudT = 0.2; UI.updateHUD(); DC.tuto.update(); }
+    if (hudT <= 0) {
+      hudT = 0.2; UI.updateHUD(); DC.tuto.update();
+      if (DC.RECHARGE) { const m = Math.floor((Date.now() - DC.sessionStart) / 60000); $('sessTime').textContent = m ? DC.fmtTime(m * 60) : '0 min'; }
+    }
     saveT += dt;
     if (saveT > 15) { saveT = 0; M.save(); }
     requestAnimationFrame(frame);

@@ -444,7 +444,7 @@
       const [zm, zp] = zc.querySelectorAll('button');
       zm.onclick = () => { DC.main.zoomBy(-1); zc.querySelector('b').textContent = zl(); };
       zp.onclick = () => { DC.main.zoomBy(1); zc.querySelector('b').textContent = zl(); };
-      row('🔍 Zoom <div class="desc">Aussi à la molette de la souris</div>', zc);
+      row(`🔍 Zoom <div class="desc">${DC.isTouch ? 'Aussi en pinçant l’écran' : 'Aussi à la molette de la souris'}</div>`, zc);
       row('🔠 Taille du texte', seg([[1, 'Normal'], [1.2, 'Grand'], [1.4, 'Très grand']], o.textSize || 1, v => { o.textSize = v; DC.main.relayout(); }));
       const tb = h('button', 'buy alt small', '🎓 Revoir le tutoriel');
       tb.onclick = () => { UI.close(); DC.tuto.start(); };
@@ -469,6 +469,16 @@
         const qt = h('button', 'buy warn small', '✕ Quitter'); qt.onclick = () => { DC.main.save(); setTimeout(() => DC.desk.call('quit'), 150); };
         r.appendChild(mn); r.appendChild(qt);
         body.appendChild(r);
+      }
+
+      if (!DC.desk.ok) {
+        sec('🔌 Mode recharge');
+        const mb = h('button', 'buy small' + (DC.RECHARGE ? ' alt' : ''), DC.RECHARGE ? '🏡 Revenir au mode normal' : '🔌 Passer en mode recharge');
+        mb.onclick = () => DC.setMode(!DC.RECHARGE);
+        const mr = row(DC.RECHARGE
+          ? 'Vous jouez en mode recharge<div class="desc">Version tactile et accélérée : la Prairie se termine en quelques heures. Elle a sa propre partie, distincte du mode normal (retrouvée en revenant ici).</div>'
+          : 'Mode recharge<div class="desc">Pour l’écran tactile d’une voiture (Tesla…) pendant une recharge : gros boutons, progression environ 80 fois plus rapide, partie séparée. Adresse directe : <b>…/DeskCosy/recharge</b></div>', mb);
+        mr.classList.add('mode-card');
       }
 
       sec('Sauvegarde');

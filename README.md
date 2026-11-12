@@ -6,7 +6,7 @@
 
 Jeu *idle* cosy en pixel art · HTML5 / JavaScript sans dépendance · Mode bureau Windows · Paysage **et** portrait
 
-[**▶ Jouer dans le navigateur**](https://bbtoff.github.io/DeskCosy/) · [Démo ferme avancée](https://bbtoff.github.io/DeskCosy/?demo=1) · [Démo Vallée d’automne](https://bbtoff.github.io/DeskCosy/?demo=2)
+[**▶ Jouer dans le navigateur**](https://bbtoff.github.io/DeskCosy/) · [**🔌 Mode recharge**](https://bbtoff.github.io/DeskCosy/recharge/) · [Démo ferme avancée](https://bbtoff.github.io/DeskCosy/?demo=1) · [Démo Vallée d’automne](https://bbtoff.github.io/DeskCosy/?demo=2)
 
 ![Bande de bureau en mode paysage](docs/screenshots/bande-paysage.png)
 
@@ -22,6 +22,7 @@ Jeu *idle* cosy en pixel art · HTML5 / JavaScript sans dépendance · Mode bure
 - [Comment jouer](#comment-jouer)
 - [Progression et difficulté](#progression-et-difficulté)
 - [Fin de partie : la Vallée d’automne](#fin-de-partie--la-vallée-dautomne)
+- [Mode recharge (Tesla, tactile)](#mode-recharge-tesla-tactile)
 - [Mode bureau](#mode-bureau)
 - [Options et accessibilité](#options-et-accessibilité)
 - [Structure du projet](#structure-du-projet)
@@ -158,6 +159,34 @@ Elle tourne **en même temps** que la Prairie, et le bouton 🍂 / 🌿 permet d
 
 ---
 
+## Mode recharge (Tesla, tactile)
+
+Une variante pensée pour l’**écran tactile d’une voiture** (Tesla ou autre) ou d’une tablette, à jouer
+**à l’arrêt pendant une recharge** de 20 à 45 minutes.
+
+**Adresse directe : https://bbtoff.github.io/DeskCosy/recharge/**
+
+Le mode s’active aussi tout seul dans le navigateur d’une Tesla, et se change dans ⚙ Options.
+
+- **Interface tactile** : gros boutons, texte « Très grand » par défaut, **pincer pour zoomer**, appui long pour
+  attribuer une graine.
+- **Progression accélérée** : prix, XP et durées de recherche compressés (environ 80 fois plus rapide en fin de partie,
+  presque inchangé au tout début), avec les mêmes mécaniques : fatigue, recherche, paliers, zones, Vallée d’automne.
+- **Compteur de session** 🔌 dans la barre du haut.
+- **Absence limitée à 30 minutes** : entre deux recharges, les robots avancent un peu, mais l’essentiel se joue
+  pendant la session.
+- **Partie séparée** : le mode recharge a sa propre sauvegarde, et le mode normal garde la sienne.
+
+| Jalon (joueur optimal) | Mode recharge | Mode normal |
+|---|---:|---:|
+| Palier 10 | ~12 min | ~5 h |
+| Prairie terminée | ~3 h 15 | ~240 h |
+| Tout le jeu | ~8 h | ~620 h |
+
+Soit une dizaine à une vingtaine de recharges pour tout terminer.
+
+---
+
 ## Mode bureau
 
 Le lanceur [`DeskCosy.pyw`](DeskCosy.pyw) (pywebview / WebView2) apporte :
@@ -190,12 +219,14 @@ js/data.js            données et équilibrage : cultures, robots, recherches, z
 js/assets.js          chargement des tuiles et robots en pixel art générés par le code
 js/audio.js           sons et musique
 js/game.js            simulation : croissance, IA et batteries des robots, régions, économie, météo, hors-ligne
+js/recharge.js        mode recharge : détection, sauvegarde séparée, équilibrage accéléré
 js/render.js          mise en page adaptative et rendu canvas
 js/ui.js              HUD et panneaux
 js/tuto.js            tutoriel interactif
 js/main.js            démarrage, boucle, entrées, sauvegarde, pont bureau
 DeskCosy.pyw          lanceur bureau (pywebview, barre d’application Windows)
 Lancer DeskCosy.bat   installe pywebview si besoin et lance le jeu
+recharge/             raccourci vers le mode recharge
 assets/               ressources graphiques et sonores (voir crédits)
 docs/screenshots/     captures de ce README
 ```
@@ -203,7 +234,7 @@ docs/screenshots/     captures de ce README
 Aucune étape de compilation : du HTML, du CSS et du JavaScript classique, qui s’ouvre aussi en `file://`.
 
 Paramètres d’URL utiles : `?demo=1` (ferme avancée), `?demo=2` (Vallée), `?open=lab` ou `?open=farm.levels`
-(ouvrir un panneau). Les démos ne sont pas sauvegardées.
+(ouvrir un panneau), `?recharge=1` / `?recharge=0` (mode recharge / mode normal). Les démos ne sont pas sauvegardées.
 
 ---
 
@@ -241,7 +272,9 @@ Ressources libres utilisées (licences complètes dans [`assets/licenses/`](asse
 crops while you work. They get tired and recharge on charging pads using compost energy. It features a real-time
 research tree, farm tiers, purchasable land zones, an end-game second farm (the Autumn Valley), a day/night cycle based on
 real time, offline progress, landscape and portrait layouts, and a Windows desktop mode (frameless, always-on-top
-strip that can reserve screen space like the taskbar). The game is in French.
+strip that can reserve screen space like the taskbar). A touch-friendly, ~80× faster **“mode recharge”** (separate
+save) is designed for playing on a car's touchscreen while charging: https://bbtoff.github.io/DeskCosy/recharge/.
+The game is in French.
 
 **Play:** https://bbtoff.github.io/DeskCosy/ · **Desktop:** run `Lancer DeskCosy.bat` (needs Python 3).
 

@@ -20,7 +20,7 @@
       nameIdx: Math.floor(rnd() * DC.BOT_NAMES.length),
       weather: { type: 'sun', t: 240 },
       lastSave: Date.now(),
-      opts: { music: 0.3, sfx: 0.6, zoom: 0, daynight: true, layout: 'auto', dock: 'bottom', dockSize: 240, onTop: true, reserve: true, textSize: 1 },
+      opts: { music: 0.3, sfx: 0.6, zoom: 0, daynight: true, layout: 'auto', dock: 'bottom', dockSize: 240, onTop: true, reserve: true, textSize: DC.RECHARGE ? 1.4 : 1 },
     };
     defineAcc(st);
     return st;
@@ -739,7 +739,7 @@
 
   /* Rattrapage après absence */
   G.catchUp = function (seconds) {
-    seconds = Math.min(seconds, 12 * 3600);
+    seconds = Math.min(seconds, DC.OFFLINE_MAX || 12 * 3600);
     if (seconds < 5) return null;
     const before = { coins: G.s.coins, harvests: G.s.stats.harvests, earned: G.s.stats.earned, level: G.s.level, res: G.researchCount() };
     G.fast = true;
