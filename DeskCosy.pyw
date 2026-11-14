@@ -35,6 +35,30 @@ except ImportError:
     sys.exit(0)
 
 WINDOW = None
+ICON = os.path.join(HERE, 'assets', 'img', 'deskcosy.ico')
+
+# Identité propre dans la barre des tâches : DeskCosy n'est plus regroupé avec Python
+# et garde sa propre icône (à faire avant de créer la moindre fenêtre).
+try:
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('BBtoFF.DeskCosy')
+except Exception:
+    pass
+
+
+def set_icon():
+    """Remplace l'icône Python de la fenêtre par celle de DeskCosy (barre des tâches, Alt+Tab)."""
+    hwnd = window_handle()
+    if not hwnd or not os.path.isfile(ICON):
+        return
+    u = ctypes.windll.user32
+    u.LoadImageW.restype = ctypes.c_void_p
+    u.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+    IMAGE_ICON, LR_LOADFROMFILE, WM_SETICON = 1, 0x10, 0x80
+    for kind, metric in ((1, 11), (0, 49)):      # ICON_BIG (SM_CXICON), ICON_SMALL (SM_CXSMICON)
+        px = u.GetSystemMetrics(metric)
+        h = u.LoadImageW(None, ICON, IMAGE_ICON, px, px, LR_LOADFROMFILE)
+        if h:
+            u.SendMessageW(ctypes.c_void_p(hwnd), WM_SETICON, ctypes.c_void_p(kind), ctypes.c_void_p(h))
 
 
 # ---------------------------------------------------------------- serveur local
@@ -306,6 +330,7 @@ def main():
             time.sleep(0.6)
 
     WINDOW.events.closing += on_closing
+    WINDOW.events.shown += set_icon
     atexit.register(appbar_remove)
     webview.start(private_mode=False, storage_path=os.path.join(DATA, 'webview'))
 
